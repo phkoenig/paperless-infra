@@ -1,0 +1,14 @@
+{
+	auto_https off
+}
+
+:80 {
+	encode gzip
+	reverse_proxy paperless-webserver:8000
+}
+
+# When DNS is ready, replace with TLS hosts:
+# archive.megabrain.cloud, www.archive.megabrain.cloud {
+# 	encode gzip
+# 	reverse_proxy paperless-webserver:8000
+# }
