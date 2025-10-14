@@ -1,0 +1,2 @@
+0 * * * * rclone sync /opt/paperless/media nextcloud-backup:Paperless/media --backup-dir nextcloud-backup:Paperless/media_archive/$(date +\%F_\%H) --log-level INFO
+30 2 * * * pg_dump -U ${POSTGRES_USER} ${POSTGRES_DB} > /opt/paperless/backups/db/backup_$(date +\%F).sql && rclone copy /opt/paperless/backups/db nextcloud-backup:Paperless/db --log-level INFO

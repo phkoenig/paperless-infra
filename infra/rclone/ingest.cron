@@ -1,0 +1,1 @@
+*/5 * * * * rclone sync nextcloud-ingest:INBOX /opt/paperless/consume/nextcloud --no-update-modtime --checksum --create-empty-src-dirs --log-level INFO
