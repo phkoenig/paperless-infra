@@ -40,6 +40,47 @@ services:
       - /opt/paperless/consume/nextcloud:/data
     entrypoint: ["supercronic","/config/rclone/ingest.cron"]
 
+  rclone-backup:
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./rclone:/config/rclone:ro
+      - /opt/paperless/media:/media:ro
+      - /opt/paperless/backups:/backups
+    entrypoint: ["supercronic","/config/rclone/backup.cron"]
+
+  eml2pdf:
+    build:
+      context: ./eml2pdf
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - gotenberg
+    environment:
+      EML_INPUT_DIR: /usr/src/paperless/data/mail
+      EML_OUTPUT_DIR: /usr/src/paperless/consume/emails
+      GOTENBERG_URL: http://gotenberg:3000
+    volumes:
+      - /opt/paperless/data:/usr/src/paperless/data:ro
+      - /opt/paperless/consume:/usr/src/paperless/consume
+
+  invoice-ai:
+    build:
+      context: ./invoice-ai
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - paperless-webserver
+    env_file:
+      - .env
+    environment:
+      PAPERLESS_MEDIA_DIR: /usr/src/paperless/media/documents
+      PAPERLESS_API_URL: http://paperless-webserver:8000
+    volumes:
+      - /opt/paperless/media:/usr/src/paperless/media:ro
+
   paperless-webserver:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
     restart: unless-stopped
