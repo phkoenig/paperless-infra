@@ -32,6 +32,14 @@ services:
     image: gotenberg/gotenberg:8
     restart: unless-stopped
 
+  rclone-ingest:
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    volumes:
+      - ./rclone:/config/rclone:ro
+      - /opt/paperless/consume/nextcloud:/data
+    entrypoint: ["supercronic","/config/rclone/ingest.cron"]
+
   paperless-webserver:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
     restart: unless-stopped
