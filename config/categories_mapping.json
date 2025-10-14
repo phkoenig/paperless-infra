@@ -1,0 +1,154 @@
+{
+  "companies": {
+    "ACME Corp": {
+      "tags": ["finanzen", "rechnungen", "lieferant"],
+      "correspondent": "ACME Corporation",
+      "document_types": ["invoice", "contract"],
+      "custom_fields": {
+        "company_type": "supplier",
+        "payment_terms": "30_days",
+        "category": "office_supplies"
+      }
+    },
+    "Microsoft": {
+      "tags": ["software", "lizenzen", "it"],
+      "correspondent": "Microsoft Deutschland GmbH",
+      "document_types": ["invoice", "license"],
+      "custom_fields": {
+        "company_type": "vendor",
+        "category": "software",
+        "subscription": true
+      }
+    },
+    "Hetzner": {
+      "tags": ["hosting", "server", "infrastruktur"],
+      "correspondent": "Hetzner Online GmbH",
+      "document_types": ["invoice", "contract"],
+      "custom_fields": {
+        "company_type": "hosting_provider",
+        "category": "infrastructure",
+        "service": "cloud_server"
+      }
+    },
+    "IONOS": {
+      "tags": ["domain", "hosting", "email"],
+      "correspondent": "IONOS SE",
+      "document_types": ["invoice", "contract"],
+      "custom_fields": {
+        "company_type": "domain_provider",
+        "category": "infrastructure",
+        "service": "domain_hosting"
+      }
+    },
+    "Google": {
+      "tags": ["workspace", "email", "cloud"],
+      "correspondent": "Google Ireland Limited",
+      "document_types": ["invoice", "license"],
+      "custom_fields": {
+        "company_type": "saas_provider",
+        "category": "productivity",
+        "service": "google_workspace"
+      }
+    }
+  },
+  "keywords": {
+    "rechnung": {
+      "tags": ["finanzen", "rechnungen"],
+      "document_type": "invoice",
+      "confidence": 0.9
+    },
+    "invoice": {
+      "tags": ["finanzen", "rechnungen"],
+      "document_type": "invoice",
+      "confidence": 0.9
+    },
+    "vertrag": {
+      "tags": ["recht", "verträge"],
+      "document_type": "contract",
+      "confidence": 0.8
+    },
+    "contract": {
+      "tags": ["recht", "verträge"],
+      "document_type": "contract",
+      "confidence": 0.8
+    },
+    "brief": {
+      "tags": ["korrespondenz", "kommunikation"],
+      "document_type": "letter",
+      "confidence": 0.7
+    },
+    "quittung": {
+      "tags": ["belege", "ausgaben"],
+      "document_type": "receipt",
+      "confidence": 0.8
+    },
+    "receipt": {
+      "tags": ["belege", "ausgaben"],
+      "document_type": "receipt",
+      "confidence": 0.8
+    }
+  },
+  "patterns": {
+    "invoice_number": [
+      "Rechnungsnummer:\\s*([A-Z0-9-]+)",
+      "Invoice No\\.?:\\s*([A-Z0-9-]+)",
+      "Bill No\\.?:\\s*([A-Z0-9-]+)"
+    ],
+    "amount": [
+      "Betrag:\\s*(\\d+[.,]\\d{2})\\s*€",
+      "Amount:\\s*(\\d+[.,]\\d{2})\\s*EUR",
+      "Total:\\s*(\\d+[.,]\\d{2})\\s*€",
+      "Summe:\\s*(\\d+[.,]\\d{2})\\s*€"
+    ],
+    "date": [
+      "(\\d{1,2}\\.\\d{1,2}\\.\\d{4})",
+      "(\\d{4}-\\d{2}-\\d{2})",
+      "(\\d{1,2}/\\d{1,2}/\\d{4})"
+    ],
+    "due_date": [
+      "Fällig:\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})",
+      "Due Date:\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})",
+      "Zahlbar bis:\\s*(\\d{1,2}\\.\\d{1,2}\\.\\d{4})"
+    ]
+  },
+  "categories": {
+    "finanzen": {
+      "subcategories": ["rechnungen", "steuern", "versicherungen", "banking"],
+      "auto_tags": ["finanzen"]
+    },
+    "recht": {
+      "subcategories": ["verträge", "agb", "datenschutz", "arbeitsrecht"],
+      "auto_tags": ["recht"]
+    },
+    "kommunikation": {
+      "subcategories": ["briefe", "emails", "fax", "korrespondenz"],
+      "auto_tags": ["kommunikation"]
+    },
+    "infrastruktur": {
+      "subcategories": ["hosting", "domains", "server", "software"],
+      "auto_tags": ["infrastruktur"]
+    }
+  },
+  "confidence_thresholds": {
+    "document_type": 0.8,
+    "correspondent": 0.7,
+    "tags": 0.6,
+    "custom_fields": 0.5
+  },
+  "fallback_rules": {
+    "unknown_company": {
+      "tags": ["unbekannt", "zu-prüfen"],
+      "document_type": "unknown",
+      "custom_fields": {
+        "requires_review": true
+      }
+    },
+    "low_confidence": {
+      "tags": ["ai-unsicher"],
+      "custom_fields": {
+        "ai_confidence": "low",
+        "requires_review": true
+      }
+    }
+  }
+}

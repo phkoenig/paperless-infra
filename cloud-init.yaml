@@ -1,0 +1,39 @@
+#cloud-config
+users:
+  - name: ubuntu
+    groups: [sudo, docker]
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP1yXsbFIUDbUNwePR7RY5C5sJVYlrON1RKSkAxoy6qi archive@megabrain.cloud
+
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - git
+
+runcmd:
+  # Install Docker
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  - chmod a+r /etc/apt/keyrings/docker.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+  - usermod -aG docker ubuntu
+  # Set timezone
+  - timedatectl set-timezone Europe/Berlin
+  # Create swap
+  - swapoff -a || true
+  - fallocate -l 2G /swapfile
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - sh -c 'echo "/swapfile none swap sw 0 0" >> /etc/fstab'
+  # Create Paperless directories
+  - mkdir -p /opt/paperless/{data,media,consume,export,db,backups}
+  - chown -R ubuntu:ubuntu /opt/paperless
+
