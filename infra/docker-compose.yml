@@ -1,0 +1,79 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - paperless-webserver
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - /opt/paperless/db:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: unless-stopped
+
+  paperless-webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+      - gotenberg
+    env_file:
+      - .env
+    environment:
+      PAPERLESS_DBHOST: postgres
+      PAPERLESS_REDIS: redis://redis:6379
+      PAPERLESS_GOTENBERG_URL: http://gotenberg:3000
+      PAPERLESS_URL: ${PAPERLESS_URL}
+      PAPERLESS_ALLOWED_HOSTS: ${PAPERLESS_ALLOWED_HOSTS}
+      PAPERLESS_OCR_LANGUAGES: ${PAPERLESS_OCR_LANGUAGES}
+    volumes:
+      - /opt/paperless/data:/usr/src/paperless/data
+      - /opt/paperless/media:/usr/src/paperless/media
+      - /opt/paperless/consume:/usr/src/paperless/consume
+      - /opt/paperless/export:/usr/src/paperless/export
+
+  paperless-worker:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - paperless-webserver
+    command: worker
+    env_file:
+      - .env
+    environment:
+      PAPERLESS_DBHOST: postgres
+      PAPERLESS_REDIS: redis://redis:6379
+      PAPERLESS_GOTENBERG_URL: http://gotenberg:3000
+    volumes:
+      - /opt/paperless/data:/usr/src/paperless/data
+      - /opt/paperless/media:/usr/src/paperless/media
+      - /opt/paperless/consume:/usr/src/paperless/consume
+      - /opt/paperless/export:/usr/src/paperless/export
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}
+
+
