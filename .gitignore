@@ -48,3 +48,4 @@ Thumbs.db
 # Server-specific files (don't commit server data)
 /opt/paperless/
 /var/lib/paperless/
+docs/client_secret_*.json

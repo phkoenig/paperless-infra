@@ -88,9 +88,11 @@ PAPERLESS_ALLOWED_HOSTS=archive.megabrain.cloud,www.archive.megabrain.cloud,YOUR
 # Database
 POSTGRES_PASSWORD=STRONG_PASSWORD_HERE
 
-# Mail (Google Workspace)
+# Mail (Google Workspace OAuth2)
 PAPERLESS_MAIL_USER=philip@zepta.com
-PAPERLESS_MAIL_PASSWORD=YOUR_APP_PASSWORD
+PAPERLESS_MAIL_OAUTH_CLIENT_ID=YOUR_OAUTH_CLIENT_ID
+PAPERLESS_MAIL_OAUTH_CLIENT_SECRET=YOUR_OAUTH_CLIENT_SECRET
+PAPERLESS_MAIL_OAUTH_REDIRECT_URI=https://archive.megabrain.cloud/oauth2callback/
 ```
 
 ### 3. Verzeichnisse erstellen
@@ -112,6 +114,48 @@ docker compose up -d
 # Logs prüfen
 docker compose logs -f
 ```
+
+## 📧 OAuth2 für Gmail einrichten
+
+### 1. Google Cloud Console
+
+**Projekt erstellen:**
+1. [Google Cloud Console](https://console.cloud.google.com) öffnen
+2. **Neues Projekt erstellen** oder bestehendes auswählen
+3. **APIs aktivieren:**
+   - Gmail API
+   - Google+ API
+
+**OAuth2-Credentials erstellen:**
+1. **APIs & Services** → **Credentials**
+2. **Create Credentials** → **OAuth client ID**
+3. **Application type:** Web application
+4. **Name:** Paperless-NGX
+5. **Authorized redirect URIs:** `https://archive.megabrain.cloud/oauth2callback/`
+6. **Client ID und Client Secret kopieren**
+
+### 2. OAuth2 in .env konfigurieren
+
+```bash
+# OAuth2 Configuration
+PAPERLESS_MAIL_OAUTH_CLIENT_ID=your-client-id-here
+PAPERLESS_MAIL_OAUTH_CLIENT_SECRET=your-client-secret-here
+PAPERLESS_MAIL_OAUTH_REDIRECT_URI=https://archive.megabrain.cloud/oauth2callback/
+```
+
+### 3. Paperless neu starten
+
+```bash
+docker compose restart paperless-webserver paperless-worker
+```
+
+### 4. OAuth2-Autorisierung im Web-UI
+
+1. **Paperless Web-UI öffnen:** https://archive.megabrain.cloud
+2. **Admin** → **E-Mail** → **E-Mail-Konto hinzufügen**
+3. **OAuth2-Tab** auswählen
+4. **"Autorisieren"** klicken → Google-Login → Berechtigung erteilen
+5. **Testen** → sollte jetzt funktionieren!
 
 ## 🔐 TLS aktivieren
 

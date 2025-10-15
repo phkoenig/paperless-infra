@@ -81,11 +81,11 @@ Wahl: hcloud CLI oder Web-Console
 
 ### 4. Secrets & Credentials konfigurieren
 
-- Google Workspace: App-Passwort für philip@zepta.com und office@zepta.com erstellen (2FA + App-Passwort)
-- Nextcloud: Admin-Login für WebDAV (philip@zepta.com + Passwort) - App-Passwort hatte Probleme
+- Google Workspace: OAuth2-Credentials in Google Cloud Console erstellen (Gmail API + Google+ API)
+- Nextcloud: Admin-Login für WebDAV (philip@zepta.com + Passwort) - funktioniert
 - `infra/.env` erstellen (aus .env.example) und ausfüllen:
 - POSTGRES_PASSWORD
-- PAPERLESS_MAIL_PASSWORD (philip@zepta.com)
+- PAPERLESS_MAIL_OAUTH_CLIENT_ID + CLIENT_SECRET (OAuth2 statt App-Passwort)
 - Rclone-Config: Nextcloud-Admin-User + Passwort
 
 ### 5. AI-Klassifikation & Taxonomie
