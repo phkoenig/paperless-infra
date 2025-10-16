@@ -26,45 +26,34 @@ ssh ubuntu@archive.megabrain.cloud
 
 ---
 
-## ⚠️ **OFFENE FRAGE: SSH-Key Authentication**
+## ✅ **SSH-Key Authentication AKTIVIERT**
 
-### **Status:** ❓ **Unbeantwortet**
+### **Status:** ✅ **Eingerichtet am 16.10.2025**
 
-**Frage vom Agent:**
-> "Soll ich für dich einen SSH-Key auf deinem lokalen Rechner erstellen und zum Server hinzufügen, damit du dich ohne Passwort einloggen kannst?"
+**SSH-Key Details:**
+- **Typ:** `ssh-ed25519` (Modern & Sicher)
+- **Lokaler Key:** `~/.ssh/id_ed25519`
+- **Public Key auf Server:** `~/.ssh/authorized_keys`
+- **Passwortloser Login:** ✅ Funktioniert
 
-**User-Antwort:** Keine Antwort erhalten
+### **✨ Vorteile:**
+- ✅ **Sicherer** als Passwort-basiert
+- ✅ **Keine Passwort-Eingabe** mehr nötig
+- ✅ **Automatisierung** möglich (Scripts, CI/CD)
+- ✅ **Best Practice** für Server-Management
 
-### **Empfehlung:**
+### **📝 SSH-Config erstellt:**
+Die Datei `~/.ssh/config` wurde erstellt mit Alias "paperless"
 
-#### **Option 1: SSH-Key Authentication (EMPFOHLEN für Sicherheit)**
-**Vorteile:**
-- ✅ Sicherer als Passwort
-- ✅ Keine Passwort-Eingabe mehr nötig
-- ✅ Kann für GitHub Actions / CI/CD verwendet werden
-- ✅ Best Practice
-
-**Setup:**
+**Du kannst jetzt einfach verbinden mit:**
 ```bash
-# 1. Lokalen SSH-Key erstellen (falls noch nicht vorhanden)
-ssh-keygen -t ed25519 -C "philip@zepta.com"
-
-# 2. Public Key zum Server kopieren
-ssh-copy-id ubuntu@91.98.40.206
-
-# 3. Testen
-ssh ubuntu@91.98.40.206
+ssh paperless
 ```
 
-#### **Option 2: Passwort-Authentication (Aktueller Status)**
-**Vorteile:**
-- ✅ Einfach
-- ✅ Funktioniert bereits
-
-**Nachteile:**
-- ❌ Weniger sicher
-- ❌ Passwort muss jedes Mal eingegeben werden
-- ❌ Nicht ideal für Automatisierung
+Statt:
+```bash
+ssh ubuntu@91.98.40.206
+```
 
 ---
 
@@ -218,9 +207,9 @@ cat ~/.ssh/config
 
 ---
 
-## 📝 **SSH-Config Empfehlung (Lokal)**
+## 📝 **SSH-Config (Lokal)**
 
-Erstelle/Bearbeite `~/.ssh/config` auf deinem lokalen Rechner:
+Die Datei `~/.ssh/config` wurde bereits erstellt mit folgendem Inhalt:
 
 ```ssh-config
 # Paperless-NGX Hetzner Server
@@ -242,32 +231,48 @@ Host paperless-domain
     ServerAliveCountMax 3
 ```
 
-**Dann kannst du einfach verbinden mit:**
+### **✅ Verwendung:**
 ```bash
+# Kurzer Alias
 ssh paperless
+
+# Oder via Domain
+ssh paperless-domain
 ```
+
+### **📋 Erklärung:**
+- `ServerAliveInterval 60` - Sendet alle 60 Sek ein Keep-Alive
+- `ServerAliveCountMax 3` - Beendet nach 3 fehlgeschlagenen Keep-Alives
+- `IdentityFile` - Verwendet deinen SSH-Key automatisch
 
 ---
 
-## 🔐 **TODO: Offene SSH-Fragen**
+## 🔐 **SSH-Security Status**
 
-### **Zu klären mit Philip:**
-1. ❓ **SSH-Key Authentication einrichten?**
-   - Soll ich einen SSH-Key auf dem lokalen Rechner erstellen?
-   - Soll dieser zum Server hinzugefügt werden?
-   - Soll Passwort-Auth danach deaktiviert werden?
+### **✅ Abgeschlossen:**
+1. ✅ **SSH-Key Authentication eingerichtet**
+   - SSH-Key existierte bereits (`~/.ssh/id_ed25519`)
+   - Public Key zum Server kopiert
+   - Passwortloser Login funktioniert
 
-2. ❓ **SSH-Config anlegen?**
-   - Soll ich eine ~/.ssh/config Datei erstellen?
-   - Soll ein Alias "paperless" eingerichtet werden?
+2. ✅ **SSH-Config angelegt**
+   - `~/.ssh/config` erstellt
+   - Alias "paperless" eingerichtet
+   - Alternative "paperless-domain" verfügbar
 
-3. ❓ **Mehrere Rechner?**
-   - Von welchen Rechnern soll Zugriff möglich sein?
-   - Sollen mehrere SSH-Keys hinzugefügt werden?
+### **📋 Optional (bei Bedarf):**
+1. ⚪ **Passwort-Auth deaktivieren** (für maximale Sicherheit)
+   - Nur SSH-Key erlauben
+   - In `/etc/ssh/sshd_config`: `PasswordAuthentication no`
+   - Erst nach Test des SSH-Key-Logins!
 
-4. ❓ **Backup-Zugang?**
-   - Braucht jemand anderes SSH-Zugang?
-   - Backup-User mit eingeschränkten Rechten?
+2. ⚪ **Mehrere Rechner?**
+   - Falls Zugriff von anderen Rechnern nötig
+   - Weitere SSH-Keys hinzufügen
+
+3. ⚪ **Backup-Zugang?**
+   - Falls andere Personen Zugang brauchen
+   - Separater User mit eingeschränkten Rechten
 
 ---
 
@@ -276,13 +281,16 @@ ssh paperless
 **Philip König**
 - E-Mail: philip@zepta.com
 
-**Aktueller SSH-Status:** ✅ Funktioniert (Passwort-basiert)  
-**Empfehlung:** 🔑 SSH-Key Authentication einrichten  
-**Priorität:** 🟡 Mittel (funktioniert, aber nicht optimal)
+**Aktueller SSH-Status:** ✅ SSH-Key Authentication aktiviert  
+**Setup am:** 16.10.2025  
+**Login-Methode:** 🔑 Passwortlos via SSH-Key
 
 ---
 
 ## 📅 Letzte Aktualisierung
 
-**16.10.2025** - SSH-Zugang dokumentiert, offene Frage zu Key-Auth vermerkt.
+**16.10.2025 (23:45)** - SSH-Key Authentication eingerichtet und dokumentiert.
+- SSH-Key zum Server kopiert
+- SSH-Config mit Alias "paperless" erstellt
+- Passwortloser Login getestet und funktioniert
 
