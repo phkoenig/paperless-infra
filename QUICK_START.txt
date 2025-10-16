@@ -1,0 +1,44 @@
+📋 PAPERLESS-NGX PROJEKT - QUICK START
+
+Hallo! Bitte verschaffe dir einen Überblick über dieses Projekt:
+
+1️⃣ LIES DIESE DATEIEN (in Reihenfolge):
+   - README.md (Projekt-Übersicht)
+   - DEPLOYMENT_STATUS.md (Status)
+   - GOOGLE_ACCOUNTS_SETUP.md (2 Google Accounts!)
+   - SSH_ACCESS.md (Server-Zugang)
+
+2️⃣ PRÜFE MCP-SERVER:
+   - Desktop Commander (clasp --version)
+   - GitHub MCP (gh --version)
+   - Context7
+
+3️⃣ WICHTIGSTE INFO:
+   ✅ Paperless-NGX auf Hetzner CX32 (Docker)
+   ✅ 2 Google Accounts exportieren E-Mails:
+      • philip@zepta.com (ZEPTA Workspace)
+      • phkoenig@gmail.com (Privat)
+   ✅ Master-Script: scripts/master-gmail-to-paperless/Code.js (v3)
+   ✅ SSH-Zugang: ssh paperless (Key-Auth aktiv)
+   ✅ Server: 91.98.40.206 / archive.megabrain.cloud
+
+4️⃣ USER-PRÄFERENZEN:
+   - Deutsch/Englisch gemischt, "Du" verwenden
+   - NIEMALS ohne Erlaubnis committen!
+   - Nur eine Änderung auf einmal
+   - Nach Änderungen testen
+
+5️⃣ STRUKTUR:
+   infra/          → Docker Stack (Hetzner)
+   scripts/        → Google Apps Script
+   docs/           → Dokumentation
+   config/         → AI Taxonomy
+   archive/        → Alte Versionen (nicht verwenden!)
+
+6️⃣ OFFENE TODOS:
+   ⏳ AI-Klassifikation (invoice-ai/app.py)
+   ⏳ TLS aktivieren (Caddyfile)
+   ⏳ Workflows einrichten
+
+Nach dem Lesen: "✅ Bereit! Was möchtest du heute arbeiten?"
+

@@ -96,6 +96,10 @@ paperless/
 
 ## 📚 Dokumentation
 
+### **🚀 Neu hier? Start hier:**
+- **[STARTUP_PROMPT.md](STARTUP_PROMPT.md)** - Umfassender Onboarding-Prompt für neue Cursor AI Sessions
+- **[QUICK_START.txt](QUICK_START.txt)** - Kurze Copy-Paste Version
+
 ### **Setup & Deployment:**
 - [Deploy Guide](docs/README_Deploy.md) - Server-Setup und Deployment
 - [SSH Access](SSH_ACCESS.md) - SSH-Zugang und Konfiguration
