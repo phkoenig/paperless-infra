@@ -1,14 +1,37 @@
-{
-	auto_https off
-}
+# Paperless-NGX Caddy Configuration with TLS
+# Caddy automatically obtains and renews SSL certificates from Let's Encrypt
 
-:80 {
+archive.megabrain.cloud {
+	# Gzip compression for better performance
 	encode gzip
+
+	# Reverse proxy to Paperless-NGX
 	reverse_proxy paperless-webserver:8000
+
+	# Security headers
+	header {
+		# Enable HSTS (HTTP Strict Transport Security)
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		
+		# Prevent clickjacking
+		X-Frame-Options "SAMEORIGIN"
+		
+		# Prevent MIME type sniffing
+		X-Content-Type-Options "nosniff"
+		
+		# XSS Protection
+		X-XSS-Protection "1; mode=block"
+		
+		# Referrer Policy
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Logging
+	log {
+		output file /var/log/caddy/access.log
+		format json
+	}
 }
 
-# When DNS is ready, replace with TLS hosts:
-# archive.megabrain.cloud, www.archive.megabrain.cloud {
-# 	encode gzip
-# 	reverse_proxy paperless-webserver:8000
-# }
+# Redirect HTTP to HTTPS (automatic with Caddy)
+# No need to configure - Caddy does this automatically!
