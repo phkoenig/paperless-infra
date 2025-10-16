@@ -72,6 +72,8 @@ paperless/
 │   ├── README_AI_Classifier.md     # AI Integration
 │   └── README_Email_Integration.md # Email Workflow
 │
+├── onboarding/                      # 🆕 Onboarding & Startup-Prompts
+├── ideas/                           # 🆕 Lose Ideen & Notizen
 ├── tests/                           # Test Scripts & Fixtures
 ├── examples/                        # Code Examples
 ├── archive/                         # Old/Deprecated Files
@@ -97,8 +99,9 @@ paperless/
 ## 📚 Dokumentation
 
 ### **🚀 Neu hier? Start hier:**
-- **[STARTUP_PROMPT.md](STARTUP_PROMPT.md)** - Umfassender Onboarding-Prompt für neue Cursor AI Sessions
-- **[QUICK_START.txt](QUICK_START.txt)** - Kurze Copy-Paste Version
+- **[onboarding/START_HERE.md](onboarding/START_HERE.md)** - Umfassender Onboarding-Prompt für neue Cursor AI Sessions
+- **[onboarding/QUICK_START.md](onboarding/QUICK_START.md)** - Kurze Version für schnelle Sessions
+- **[onboarding/](onboarding/)** - Alle Onboarding-Materialien
 
 ### **Setup & Deployment:**
 - [Deploy Guide](docs/README_Deploy.md) - Server-Setup und Deployment
