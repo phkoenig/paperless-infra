@@ -109,6 +109,7 @@ paperless/
 - [Google Accounts Setup](GOOGLE_ACCOUNTS_SETUP.md) - Beide Google Accounts Integration
 
 ### **Features & Usage:**
+- **[Workflow erklärt (ELI5)](docs/README_Workflow_ELI5.md)** - 🆕 Der komplette Workflow für Dummies erklärt!
 - [Usage Guide](docs/README_Usage.md) - Paperless Web-UI und Workflows
 - [Email Integration](docs/README_Email_Integration.md) - E-Mail-Workflow
 - [AI Classifier Guide](docs/README_AI_Classifier.md) - AI-Integration
