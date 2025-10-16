@@ -51,17 +51,38 @@ Vollautomatische papierlose Dokumentenverwaltung mit Paperless-NGX auf Hetzner C
 ## 📁 Projektstruktur
 
 ```
-├── infra/                    # Docker Compose Stack
-│   ├── docker-compose.yml   # Haupt-Stack-Definition
-│   ├── paperless.env.example # Environment-Template
-│   ├── caddy/               # Reverse Proxy + TLS
-│   ├── eml2pdf/             # E-Mail zu PDF Konverter
-│   ├── invoice-ai/          # AI-Metadaten-Extraktion
-│   └── rclone/              # Nextcloud-Sync
-├── config/                  # Konfigurationsdateien
-├── docs/                    # Dokumentation
-├── cloud-init.yaml          # Server-Setup-Script
-└── paperless-ngx-deployment.plan.md # Projektplan
+paperless/
+├── infra/                           # Docker Compose Stack
+│   ├── docker-compose.yml          # Haupt-Stack-Definition
+│   ├── paperless.env.example       # Environment-Template
+│   ├── caddy/Caddyfile             # Reverse Proxy + TLS
+│   ├── eml2pdf/                    # E-Mail zu PDF Konverter
+│   ├── invoice-ai/                 # AI-Metadaten-Extraktion
+│   └── rclone/                     # Nextcloud-Sync Config
+│
+├── scripts/                         # Automation Scripts
+│   └── master-gmail-to-paperless/  # Google Apps Script (v3)
+│
+├── config/                          # Configuration Files
+│   └── categories_mapping.json     # AI Taxonomy
+│
+├── docs/                            # Dokumentation
+│   ├── README_Deploy.md            # Deployment Guide
+│   ├── README_Usage.md             # User Guide
+│   ├── README_AI_Classifier.md     # AI Integration
+│   └── README_Email_Integration.md # Email Workflow
+│
+├── tests/                           # Test Scripts & Fixtures
+├── examples/                        # Code Examples
+├── archive/                         # Old/Deprecated Files
+├── temp/                            # Temporary Files (gitignored)
+│
+├── README.md                        # This file
+├── GOOGLE_ACCOUNTS_SETUP.md        # Google Accounts Documentation
+├── SSH_ACCESS.md                   # SSH Access Guide
+├── DEPLOYMENT_STATUS.md            # Current Status
+├── cloud-init.yaml                 # Server Provisioning
+└── .gitignore                      # Git Ignore Rules
 ```
 
 ## 🔧 Services
@@ -75,9 +96,19 @@ Vollautomatische papierlose Dokumentenverwaltung mit Paperless-NGX auf Hetzner C
 
 ## 📚 Dokumentation
 
+### **Setup & Deployment:**
 - [Deploy Guide](docs/README_Deploy.md) - Server-Setup und Deployment
+- [SSH Access](SSH_ACCESS.md) - SSH-Zugang und Konfiguration
+- [Google Accounts Setup](GOOGLE_ACCOUNTS_SETUP.md) - Beide Google Accounts Integration
+
+### **Features & Usage:**
 - [Usage Guide](docs/README_Usage.md) - Paperless Web-UI und Workflows
+- [Email Integration](docs/README_Email_Integration.md) - E-Mail-Workflow
 - [AI Classifier Guide](docs/README_AI_Classifier.md) - AI-Integration
+
+### **Status & Planung:**
+- [Deployment Status](DEPLOYMENT_STATUS.md) - Aktueller Stand
+- [Project Plan](paperless-ngx-deployment.plan.md) - Projektplan
 
 ## 💰 Kostenoptimierung
 

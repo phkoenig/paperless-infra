@@ -1,51 +1,100 @@
-# Environment files with secrets
-infra/.env
+# Paperless-NGX Repository - .gitignore
+
+# ===================================
+# Sensible Daten & Credentials
+# ===================================
 *.env
+.env
+.env.*
+!.env.example
+**/paperless.env
+!**/paperless.env.example
 
-# Docker volumes and data
-infra/volumes/
-infra/data/
+# rclone OAuth Tokens
+infra/rclone/rclone.conf
+**/rclone.conf
 
-# Logs
-*.log
-logs/
+# SSH Keys
+*.pem
+*.key
+id_rsa
+id_ed25519
 
-# Temporary files
+# ===================================
+# Google Apps Script (clasp)
+# ===================================
+.clasp.json
+.clasprc.json
+
+# ===================================
+# Temporäre Dateien
+# ===================================
+temp/
 *.tmp
 *.temp
-.DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
-.idea/
+*.log
 *.swp
 *.swo
+*~
 
+# ===================================
+# Node.js
+# ===================================
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# ===================================
 # Python
+# ===================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
 venv/
-.venv/
+env/
+ENV/
+.venv
 
-# Backup files
-*.bak
-*.backup
+# ===================================
+# Docker
+# ===================================
+.docker/
 
-# OS files
+# ===================================
+# IDE & Editor
+# ===================================
+.vscode/
+.idea/
+*.sublime-*
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
-# Server-specific files (don't commit server data)
-/opt/paperless/
-/var/lib/paperless/
-docs/client_secret_*.json
+# ===================================
+# OS-spezifisch
+# ===================================
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# ===================================
+# Backup & Archive
+# ===================================
+*.backup
+*.bak
+*.old
+
+# ===================================
+# Tests & Coverage
+# ===================================
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# ===================================
+# Dokumentation (generiert)
+# ===================================
+docs/_build/
