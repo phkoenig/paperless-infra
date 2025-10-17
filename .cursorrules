@@ -48,6 +48,8 @@
 - ✅ **IMMER** vor Commit User fragen
 - ✅ Beschreibende Commit-Messages (Deutsch/Englisch gemischt OK)
 - ✅ Nach größeren Änderungen: User an Commit erinnern
+- ✅ **Verwende normale Git-Befehle** (`git add`, `git commit`, `git push`)
+- ❌ **NIEMALS GitHub CLI (`gh`)** verwenden - hängt häufig im Terminal!
 - ❌ **NIEMALS** `--force` ohne explizite Bestätigung
 - ❌ **NIEMALS** `.env` Dateien committen
 
@@ -114,8 +116,8 @@
 - Paperless-NGX Import mit OCR
 
 **ZWEI Google Accounts:**
-1. `philip@zepta.com` (MASTER - gdrive-philip)
-2. `phkoenig@gmail.com` (OFFICE - gdrive-office)
+1. `philip@zepta.com` (ZEPTA - Architekturbüro Workspace - gdrive-philip)
+2. `phkoenig@gmail.com` (PRIVAT - gdrive-office)
 
 **MASTER Script:**
 - Location: `scripts/master-gmail-to-paperless/`
@@ -210,6 +212,7 @@ Wenn du als AI-Agent in diesem Projekt arbeitest:
 4. **User fragen:** Bei Unklarheiten lieber fragen als raten
 5. **Dokumentation aktualisieren:** Nach größeren Änderungen Docs prüfen und aktualisieren
 6. **Galaxy System beachten:** Nicht löschen - ist wichtig für zukünftige Features!
+7. **Git-Befehle:** Nur normale Git-Befehle nutzen, NIEMALS `gh` CLI (hängt häufig)
 
 ---
 

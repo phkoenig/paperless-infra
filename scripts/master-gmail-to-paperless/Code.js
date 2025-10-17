@@ -159,13 +159,22 @@ function exportAllAttachments(filterLists) {
           const date = message.getDate();
           const body = message.getPlainBody();
           
+          // ======== DUPLIKAT-CHECK (NEU v4.2) ========
+          const duplicateCheck = isDuplicateInPaperless(message);
+          
+          if (duplicateCheck.isDuplicate) {
+            console.log(`🔁 DUPLIKAT übersprungen: ${subject.substring(0, 50)} (bereits in Paperless)`);
+            return; // ← Verhindert Upload von bekannten Duplikaten
+          }
+          // ==========================================
+          
           // Eindeutige E-Mail-Ordner-ID
           const timestamp = Utilities.formatDate(date, 'GMT+1', 'yyyy-MM-dd_HH-mm-ss');
           const fromShort = cleanString(from.split('<')[0].trim()).substring(0, 20);
           const subjectShort = cleanString(subject).substring(0, 30);
           const emailFolderId = `${timestamp}_${fromShort}_${subjectShort}`;
           
-          // Prüfen ob Ordner bereits existiert (verhindert Duplikate)
+          // Prüfen ob Ordner bereits existiert (verhindert lokale Duplikate)
           if (folderExists(attachmentsRootFolder, emailFolderId)) {
             console.log(`⏭️ Ordner bereits vorhanden: ${emailFolderId}`);
             return;
@@ -232,6 +241,12 @@ function exportAllAttachments(filterLists) {
           console.log(`✅ E-Mail exportiert: ${emailFolderId}/ (${relevantAttachments.length} Anhänge)`);
           processedEmails++;
           
+          // ======== INDEX-REGISTRIERUNG (NEU v4.2) ========
+          // Registriere in Supabase paperless_documents_index
+          const attachmentMetadata = relevantAttachments.map(att => createAttachmentMetadata(att));
+          registerInPaperlessIndex(message, attachmentMetadata, emailFolder.getId());
+          // ================================================
+          
           // Log zu Supabase
           logFilterDecision(message, filterDecision, startTime);
           
@@ -283,13 +298,22 @@ function exportFilteredEmails(filterLists) {
         console.log(`✅ Export: ${message.getSubject().substring(0, 50)} (${filterDecision.reason})`);
         // ======================================
         
+        // ======== DUPLIKAT-CHECK (NEU v4.2) ========
+        const duplicateCheck = isDuplicateInPaperless(message);
+        
+        if (duplicateCheck.isDuplicate) {
+          console.log(`🔁 DUPLIKAT übersprungen: ${message.getSubject().substring(0, 50)} (bereits in Paperless)`);
+          return; // ← Verhindert Upload von bekannten Duplikaten
+        }
+        // ==========================================
+        
         // E-Mail-Ordner ID erstellen
         const timestamp = Utilities.formatDate(message.getDate(), 'GMT+1', 'yyyy-MM-dd_HH-mm-ss');
         const fromShort = cleanString(message.getFrom().split('<')[0].trim()).substring(0, 20);
         const subjectShort = cleanString(message.getSubject()).substring(0, 30);
         const emailFolderId = `${timestamp}_${fromShort}_${subjectShort}`;
         
-        // Prüfen ob Ordner bereits existiert (verhindert Duplikate)
+        // Prüfen ob Ordner bereits existiert (verhindert lokale Duplikate)
         if (folderExists(emailsRootFolder, emailFolderId)) {
           console.log(`⏭️ Ordner bereits vorhanden: ${emailFolderId}`);
           return;
@@ -356,6 +380,12 @@ function exportFilteredEmails(filterLists) {
         
         console.log(`✅ E-Mail exportiert: ${emailFolderId}/ (.eml + ${relevantAttachments.length} Anhänge)`);
         emailCount++;
+        
+        // ======== INDEX-REGISTRIERUNG (NEU v4.2) ========
+        // Registriere in Supabase paperless_documents_index
+        const attachmentMetadata = relevantAttachments.map(att => createAttachmentMetadata(att));
+        registerInPaperlessIndex(message, attachmentMetadata, emailFolder.getId());
+        // ================================================
         
         // Log zu Supabase
         logFilterDecision(message, filterDecision, startTime);
@@ -726,6 +756,134 @@ function createAttachmentMetadata(attachment) {
     sha256: sha256,
     hash_algorithm: 'SHA-256'
   };
+}
+
+// ============================================
+// DUPLIKAT-ERKENNUNG (NEU v4.2)
+// ============================================
+
+/**
+ * Prüft ob E-Mail bereits in Paperless importiert wurde
+ * Verhindert Duplikate BEVOR sie hochgeladen werden
+ * 
+ * @param {GmailMessage} message - Gmail Message Objekt
+ * @returns {Object} { isDuplicate: boolean, reason: string, existingEntry: object }
+ */
+function isDuplicateInPaperless(message) {
+  try {
+    const rfcMessageId = extractRFCMessageID(message);
+    
+    if (!rfcMessageId) {
+      console.warn('⚠️ Keine RFC Message-ID gefunden - kann nicht auf Duplikate prüfen');
+      return { isDuplicate: false, reason: 'no_message_id' };
+    }
+    
+    // Prüfe gegen Supabase paperless_documents_index
+    const url = `${SUPABASE_URL}/rest/v1/paperless_documents_index?rfc_message_id=eq.${encodeURIComponent(rfcMessageId)}&select=*`;
+    
+    const options = {
+      method: 'get',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      muteHttpExceptions: true
+    };
+    
+    const response = UrlFetchApp.fetch(url, options);
+    const statusCode = response.getResponseCode();
+    
+    if (statusCode === 200) {
+      const results = JSON.parse(response.getContentText());
+      
+      if (results.length > 0) {
+        const existing = results[0];
+        console.log(`🔁 DUPLIKAT gefunden: Message-ID bereits in Paperless (ID: ${existing.paperless_id || 'pending'})`);
+        return {
+          isDuplicate: true,
+          reason: 'message_id_exists',
+          existingEntry: existing
+        };
+      }
+    }
+    
+    // Kein Duplikat gefunden
+    return { isDuplicate: false, reason: 'new_document' };
+    
+  } catch (error) {
+    console.error(`❌ Duplikat-Check fehlgeschlagen: ${error.message}`);
+    // Bei Fehler: Lieber durchlassen als blockieren
+    return { isDuplicate: false, reason: 'check_failed', error: error.message };
+  }
+}
+
+/**
+ * Registriert E-Mail in Supabase paperless_documents_index
+ * Wird aufgerufen NACH dem Upload zu Google Drive
+ * 
+ * @param {GmailMessage} message - Gmail Message Objekt
+ * @param {Array} attachments - Array von Attachment-Objekten mit SHA-256
+ * @param {String} googleDriveFolderId - Google Drive Ordner-ID
+ */
+function registerInPaperlessIndex(message, attachments, googleDriveFolderId) {
+  try {
+    const rfcMessageId = extractRFCMessageID(message);
+    
+    if (!rfcMessageId) {
+      console.warn('⚠️ Keine RFC Message-ID - kann nicht in Index registrieren');
+      return;
+    }
+    
+    // SHA-256 Hashes extrahieren
+    const sha256Hashes = attachments
+      .map(att => att.sha256)
+      .filter(hash => hash !== null);
+    
+    // Entry für Supabase erstellen
+    const indexEntry = {
+      rfc_message_id: rfcMessageId,
+      gmail_message_id: message.getId(),
+      gmail_thread_id: message.getThread().getId(),
+      sha256_hashes: sha256Hashes,
+      paperless_id: null, // Wird später von Paperless MCP aktualisiert
+      email_from: message.getFrom(),
+      email_subject: message.getSubject(),
+      has_attachments: attachments.length > 0,
+      attachment_count: attachments.length,
+      source_account: Session.getActiveUser().getEmail(),
+      google_drive_folder_id: googleDriveFolderId,
+      notes: 'Registered by Apps Script v4.2 after upload'
+    };
+    
+    // Insert in Supabase
+    const url = `${SUPABASE_URL}/rest/v1/paperless_documents_index`;
+    
+    const options = {
+      method: 'post',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      payload: JSON.stringify(indexEntry),
+      muteHttpExceptions: true
+    };
+    
+    const response = UrlFetchApp.fetch(url, options);
+    const statusCode = response.getResponseCode();
+    
+    if (statusCode === 201) {
+      console.log(`✅ In Paperless-Index registriert: ${rfcMessageId}`);
+    } else {
+      console.warn(`⚠️ Index-Registrierung fehlgeschlagen (${statusCode}): ${response.getContentText()}`);
+    }
+    
+  } catch (error) {
+    console.error(`❌ Index-Registrierung fehlgeschlagen: ${error.message}`);
+    // Nicht kritisch - E-Mail wurde trotzdem hochgeladen
+  }
 }
 
 // ============================================

@@ -21,8 +21,8 @@ Verstehe wie das System funktioniert:
 - **[Complete Workflow v4.2](architecture/README_Complete_Workflow.md)** ⭐  
   _Der vollständige End-to-End Workflow: Gmail → .eml → Google Drive → rclone → eml2pdf → Paperless_
 
-- **[Deduplication Strategy](architecture/README_Deduplication.md)**  
-  _3-stufige Duplikaterkennung mit Message-ID, SHA-256 Hashes und Paperless Content-Hash_
+- **[Deduplication Strategy v4.2](architecture/README_Deduplication_v4.2.md)**  
+  _4-Ebenen präventive Duplikaterkennung mit Supabase-Index (NEU!)_
 
 - **[Galaxy System - KI Navigation](architecture/README_GALAXY_SYSTEM_KI_NAVIGATION.md)** 🚧  
   _Zukunftsprojekt: AI-gesteuerte intelligente Dokumentenzuordnung_
@@ -104,7 +104,7 @@ Projekt-Status und Planungen:
 ## 🆘 Hilfe & Support
 
 ### Problem beim Email-Import?
-→ Siehe [Deduplication Strategy](architecture/README_Deduplication.md) - "Failed imports" sind oft erfolgreiche Duplikaterkennung!
+→ Siehe [Deduplication Strategy v4.2](architecture/README_Deduplication_v4.2.md) - Präventive Duplikaterkennung verhindert "failed imports"!
 
 ### Server-Probleme?
 → Siehe [MCP Administration](development/README_MCP_Administration.md) für Debugging-Befehle

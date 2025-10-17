@@ -474,7 +474,7 @@ Siehe: `temp/ordnerstruktur_analyse.md`
 
 ## 📚 Weitere Dokumentation
 
-- **Duplikaterkennung:** [README_Deduplication.md](README_Deduplication.md)
+- **Duplikaterkennung:** [README_Deduplication_v4.2.md](README_Deduplication_v4.2.md) (NEU: Präventiv!)
 - **MCP Administration:** [README_MCP_Administration.md](README_MCP_Administration.md)
 - **Email Filter:** [README_Email_Filter.md](README_Email_Filter.md)
 - **Deployment:** [README_Deploy.md](README_Deploy.md)
