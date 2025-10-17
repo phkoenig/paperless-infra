@@ -1,5 +1,10 @@
 /**
- * Gmail zu Paperless Export Script - MASTER VERSION v4
+ * Gmail zu Paperless Export Script - MASTER VERSION v4.1
+ * 
+ * NEU in v4.1:
+ * - RFC Message-ID Extraktion (weltweit eindeutig)
+ * - SHA-256 Hashes für Anhänge (Duplikaterkennung)
+ * - Verbesserte Metadata-Struktur
  * 
  * NEU in v4:
  * - Intelligenter Filter mit Supabase Whitelist/Blacklist
@@ -131,7 +136,8 @@ function exportAllAttachments(filterLists) {
       if (relevantAttachments.length > 0) {
         try {
           // E-Mail-Metadaten extrahieren
-          const messageId = message.getId();
+          const rfcMessageId = extractRFCMessageID(message);  // ← NEU: RFC-Standard
+          const gmailMessageId = message.getId();              // Gmail-intern (Backup)
           const threadId = thread.getId();
           const from = message.getFrom();
           const to = message.getTo();
@@ -163,29 +169,44 @@ function exportAllAttachments(filterLists) {
             attachmentCount++;
           });
           
-          // E-Mail-Metadaten als JSON erstellen
+          // E-Mail-Metadaten als JSON erstellen (v4.1 mit RFC Message-ID + SHA-256)
           const metadata = {
-            messageId: messageId,
-            threadId: threadId,
+            // RFC-Standard IDs (weltweit eindeutig)
+            messageId: rfcMessageId,                    // ← NEU: RFC Message-ID
+            messageIdType: 'rfc2822',
+            
+            // Gmail-spezifische IDs (als Backup)
+            gmailMessageId: gmailMessageId,
+            gmailThreadId: threadId,
+            
+            // E-Mail-Daten
             from: from,
             to: to,
             cc: cc,
             bcc: bcc,
             subject: subject,
             date: date.toISOString(),
-            attachments: relevantAttachments.map(att => ({
-              name: att.getName(),
-              size: att.getSize(),
-              type: att.getContentType()
-            })),
-            attachmentCount: relevantAttachments.length,
-            gmailDeepLink: `https://mail.google.com/mail/u/0/#inbox/${threadId}`,
-            gmailDirectLink: `https://mail.google.com/mail/u/0/#search/rfc822msgid%3A${messageId}`,
             bodyPreview: body.substring(0, 500),
+            
+            // Anhänge mit SHA-256 Hashes
+            attachments: relevantAttachments.map(att => createAttachmentMetadata(att)),  // ← NEU: Mit SHA-256
+            attachmentCount: relevantAttachments.length,
+            
+            // Links & Referenzen
+            gmailDeepLink: `https://mail.google.com/mail/u/0/#inbox/${threadId}`,
+            gmailDirectLink: `https://mail.google.com/mail/u/0/#search/rfc822msgid%3A${rfcMessageId}`,
+            
+            // Export-Info
             exportTimestamp: new Date().toISOString(),
-            exportedBy: 'Paperless-Email-Export-Script-v4-Master',
+            exportedBy: 'Paperless-Email-Export-Script-v4.1-Master',
             exportedFrom: Session.getActiveUser().getEmail(),
-            filterDecision: filterDecision
+            
+            // Filter-Entscheidung
+            filterDecision: filterDecision,
+            
+            // Version & Schema
+            metadataVersion: '4.1',
+            schemaType: 'paperless-email-export'
           };
           
           // JSON speichern
@@ -554,7 +575,73 @@ function logFilterDecision(message, decision, startTime) {
 }
 
 // ============================================
-// HELPER-FUNKTIONEN (wie vorher)
+// HELPER-FUNKTIONEN - RFC Message-ID & SHA-256 (NEU in v4.1)
+// ============================================
+
+/**
+ * Extrahiert RFC-konforme Message-ID aus E-Mail Header
+ * Diese ID ist weltweit eindeutig und systemübergreifend
+ */
+function extractRFCMessageID(message) {
+  try {
+    // Versuche RFC Message-ID aus Raw Content zu extrahieren
+    const rawContent = message.getRawContent();
+    const messageIdMatch = rawContent.match(/^Message-ID:\s*<(.+?)>/im);
+    
+    if (messageIdMatch && messageIdMatch[1]) {
+      return messageIdMatch[1];
+    }
+    
+    // Fallback: Gmail-interne ID (wenn RFC Message-ID nicht verfügbar)
+    console.warn('⚠️ Keine RFC Message-ID gefunden, verwende Gmail-ID');
+    return 'gmail-' + message.getId();
+    
+  } catch (error) {
+    console.error(`❌ Fehler bei Message-ID Extraktion: ${error.message}`);
+    return 'gmail-' + message.getId();
+  }
+}
+
+/**
+ * Berechnet SHA-256 Hash für Anhang (Duplikaterkennung)
+ */
+function calculateSHA256(blob) {
+  try {
+    const bytes = blob.getBytes();
+    const hashBytes = Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_256, 
+      bytes
+    );
+    
+    // Konvertiere zu Hex-String
+    return hashBytes.map(function(byte) {
+      const hex = (byte & 0xFF).toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+    
+  } catch (error) {
+    console.error(`❌ SHA-256 Berechnung fehlgeschlagen: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Erstellt erweiterte Attachment-Metadata mit Hash
+ */
+function createAttachmentMetadata(attachment) {
+  const sha256 = calculateSHA256(attachment);
+  
+  return {
+    name: attachment.getName(),
+    size: attachment.getSize(),
+    type: attachment.getContentType(),
+    sha256: sha256,
+    hash_algorithm: 'SHA-256'
+  };
+}
+
+// ============================================
+// HELPER-FUNKTIONEN (Original)
 // ============================================
 
 function convertEmailToPDF(message) {
