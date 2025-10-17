@@ -34,6 +34,11 @@
 // KONFIGURATION
 // ============================================
 
+// VERSION
+const SCRIPT_VERSION = 'v4.2.1';
+const SCRIPT_NAME = 'Paperless-Email-Export-Script-Master';
+const FULL_VERSION = `${SCRIPT_NAME}-${SCRIPT_VERSION}`;
+
 const PAPERLESS_ATTACHMENTS_FOLDER = 'Paperless-Attachments';
 const PAPERLESS_EMAILS_FOLDER = 'Paperless-Emails';
 const PAPERLESS_LABEL = 'Paperless';
@@ -74,12 +79,36 @@ const RELEVANT_EXTENSIONS = [
 // ============================================
 
 /**
+ * Zeigt Version und Account-Info an
+ * Führe diese Funktion aus, um zu sehen welche Version deployed ist!
+ */
+function showVersion() {
+  const userEmail = Session.getActiveUser().getEmail();
+  console.log('╔════════════════════════════════════════════╗');
+  console.log(`║  📦 ${SCRIPT_NAME}  ║`);
+  console.log('╠════════════════════════════════════════════╣');
+  console.log(`║  Version: ${SCRIPT_VERSION.padEnd(32)} ║`);
+  console.log(`║  Account: ${userEmail.padEnd(32)} ║`);
+  console.log(`║  Zeitfilter: letzte 30 Tage               ║`);
+  console.log(`║  Duplikaterkennung: Supabase Index       ║`);
+  console.log('╚════════════════════════════════════════════╝');
+  
+  return {
+    version: SCRIPT_VERSION,
+    scriptName: SCRIPT_NAME,
+    account: userEmail,
+    timeFilter: '30d',
+    deduplication: 'Supabase paperless_documents_index'
+  };
+}
+
+/**
  * Hauptfunktion - wird alle 5 Minuten ausgeführt
  */
 function exportToPaperless() {
   const userEmail = Session.getActiveUser().getEmail();
   const startTime = new Date().getTime();
-  console.log(`🚀 Paperless Export v4.1 gestartet für ${userEmail}...`);
+  console.log(`🚀 Paperless Export ${SCRIPT_VERSION} gestartet für ${userEmail}...`);
   
   // Filter-Listen aus Supabase laden (nur EINMAL für Performance!)
   const filterLists = loadFilterLists();
@@ -219,7 +248,7 @@ function exportAllAttachments(filterLists) {
             
             // Export-Info
             exportTimestamp: new Date().toISOString(),
-            exportedBy: 'Paperless-Email-Export-Script-v4.1-Master',
+            exportedBy: FULL_VERSION,
             exportedFrom: Session.getActiveUser().getEmail(),
             
             // Filter-Entscheidung
@@ -348,7 +377,7 @@ function exportFilteredEmails(filterLists) {
         const metadata = {
           // Paperless-spezifische Metadaten (nicht in .eml enthalten)
           exportTimestamp: new Date().toISOString(),
-          exportedBy: 'Paperless-Email-Export-Script-v4.2-Master',
+          exportedBy: FULL_VERSION,
           exportedFrom: Session.getActiveUser().getEmail(),
           
           // Filter-Entscheidung
