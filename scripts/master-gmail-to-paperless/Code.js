@@ -99,7 +99,7 @@ function exportAllAttachments(filterLists) {
   console.log('📎 Exportiere E-Mail-Anhänge (mit intelligentem Filter)...');
   
   const attachmentsRootFolder = getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
-  const query = 'newer_than:7d';
+  const query = 'newer_than:30d';  // 30 Tage - unabhängig von gelesen/ungelesen
   const threads = GmailApp.search(query, 0, 100);
   
   let attachmentCount = 0;
@@ -265,12 +265,12 @@ function exportAllAttachments(filterLists) {
  * Speichert als .eml + metadata.json (+ Anhänge falls vorhanden)
  */
 function exportFilteredEmails(filterLists) {
-  console.log('📧 Exportiere alle E-Mails der letzten 7 Tage...');
+  console.log('📧 Exportiere alle E-Mails der letzten 30 Tage...');
   
   const emailsRootFolder = getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
   
-  // ALLE E-Mails der letzten 7 Tage (ohne to: Filter - findet alles!)
-  const searchQuery = 'newer_than:7d';
+  // ALLE E-Mails der letzten 30 Tage (ohne is:unread Filter - findet gelesen & ungelesen!)
+  const searchQuery = 'newer_than:30d';
   const threads = GmailApp.search(searchQuery, 0, 200);
   
   console.log(`🔍 ${threads.length} E-Mail-Threads gefunden`);
