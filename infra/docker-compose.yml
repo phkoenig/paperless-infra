@@ -56,15 +56,14 @@ services:
     restart: unless-stopped
     volumes:
       - ./rclone:/config/rclone
-      - /opt/paperless/consume/gdrive-philip:/data
+      - /opt/paperless/consume:/data
     entrypoint: /bin/sh
     command:
       - -c
       - |
         apk add --no-cache rclone
         while true; do
-          rclone copy 'gdrive-philip:Paperless-Attachments' /data/attachments --config /config/rclone/rclone.conf --log-level INFO
-          rclone copy 'gdrive-philip:Paperless-Emails' /data/emails --config /config/rclone/rclone.conf --log-level INFO
+          rclone copy 'gdrive-philip:Paperless-Emails' /data/emails/ --config /config/rclone/rclone.conf --log-level INFO
           sleep 300
         done
 
@@ -73,15 +72,14 @@ services:
     restart: unless-stopped
     volumes:
       - ./rclone:/config/rclone
-      - /opt/paperless/consume/gdrive-office:/data
+      - /opt/paperless/consume:/data
     entrypoint: /bin/sh
     command:
       - -c
       - |
         apk add --no-cache rclone
         while true; do
-          rclone copy 'gdrive-office:Paperless-Attachments' /data/attachments --config /config/rclone/rclone.conf --log-level INFO
-          rclone copy 'gdrive-office:Paperless-Emails' /data/emails --config /config/rclone/rclone.conf --log-level INFO
+          rclone copy 'gdrive-office:Paperless-Emails' /data/emails/ --config /config/rclone/rclone.conf --log-level INFO
           sleep 300
         done
 
@@ -89,15 +87,15 @@ services:
     build:
       context: ./eml2pdf
       dockerfile: Dockerfile
-    restart: unless-stopped
+    restart: "no"
     depends_on:
       - gotenberg
     environment:
-      EML_INPUT_DIR: /usr/src/paperless/data/mail
-      EML_OUTPUT_DIR: /usr/src/paperless/consume/emails
+      EML_INPUT_DIR: /usr/src/paperless/consume/emails
+      EML_OUTPUT_DIR: /usr/src/paperless/consume
       GOTENBERG_URL: http://gotenberg:3000
+      PYTHONUNBUFFERED: "1"
     volumes:
-      - /opt/paperless/data:/usr/src/paperless/data:ro
       - /opt/paperless/consume:/usr/src/paperless/consume
 
   invoice-ai:

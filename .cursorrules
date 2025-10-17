@@ -1,0 +1,217 @@
+# 📋 Paperless-NGX Projekt - Cursor AI Regeln
+
+## 🗂️ Ordnerstruktur-Regeln
+
+### Root-Verzeichnis
+- ✅ **NUR** diese Dateien im Root:
+  - `README.md` - Haupt-Dokumentation
+  - `.gitignore` - Git-Konfiguration
+  - `.cursorrules` - Diese Datei
+  - `.clasp.json` - Google Apps Script Config
+- ❌ **KEINE** Dokumentations-Dateien (gehören nach `docs/`)
+- ❌ **KEINE** Scripts oder temporäre Dateien
+- ❌ **KEINE** Infrastruktur-Konfigurationen (gehören nach `infra/`)
+
+### Dokumentation (`docs/`)
+- ✅ **ALLE** Dokumentationen nach `docs/` mit Unterordnern:
+  - `docs/setup/` - Setup & Konfiguration (SSH, Google Accounts, Deployment)
+  - `docs/architecture/` - Architektur & Workflow (Complete Workflow, Deduplication, Galaxy System)
+  - `docs/development/` - Entwicklung & Admin (MCP Administration, Email Filter, Usage)
+  - `docs/planning/` - Planung & Status (Deployment Plan, Status, Logs)
+- ✅ Format: `README_Topic.md` für alle Dokumentationen
+- ✅ `docs/README.md` als Navigation/Übersicht
+- ❌ **KEINE** Docs außerhalb von `docs/` (außer Haupt-`README.md`)
+
+### Infrastruktur (`infra/`)
+- ✅ Docker Compose, Caddy, eml2pdf, invoice-ai, rclone
+- ✅ Server-Konfigurationen (`cloud-init.yaml`, `.env` Files)
+- ✅ Alle Service-spezifischen Dockerfiles und Configs
+
+### Scripts (`scripts/`)
+- ✅ Alle Automation-Scripts
+- ✅ Unterordner für größere Script-Projekte
+- ✅ Eigene README.md in jedem Script-Ordner
+
+### Temporäre Dateien
+- ✅ **Analyse-Dateien** → `temp/`
+- ✅ **Test-Scripts** → `tests/`
+- ✅ **Beispiele** → `examples/`
+- ✅ **Ideen/Planungen (future work)** → `ideas/`
+- ✅ **Veraltete Dateien** → `archive/`
+- ❌ **NIEMALS** im Root ablegen!
+
+---
+
+## 🔧 Entwicklungs-Regeln
+
+### Git & Version Control
+- ✅ **IMMER** vor Commit User fragen
+- ✅ Beschreibende Commit-Messages (Deutsch/Englisch gemischt OK)
+- ✅ Nach größeren Änderungen: User an Commit erinnern
+- ❌ **NIEMALS** `--force` ohne explizite Bestätigung
+- ❌ **NIEMALS** `.env` Dateien committen
+
+### Python-Entwicklung
+- ✅ **IMMER** `uv` statt `pip` verwenden
+- ✅ venv des aktuellen Projekts aktivieren
+- ✅ `requirements.txt` nur im Root-Ordner
+- ✅ Kleine, fokussierte Module (<200-300 Zeilen)
+
+### Paperless Administration
+- ✅ **Paperless MCP** für Paperless-Administration verwenden
+- ✅ MCP Tools: `mcp_paperless_*` für alle Paperless-Operationen
+- ❌ SSH nur für Server-Wartung (nicht für Paperless-Verwaltung)
+- ❌ **KEINE** Django Shell Befehle direkt
+
+### Code-Stil & Best Practices
+- ✅ "Do One Thing and Do It Right" - kleine, fokussierte Module
+- ✅ Eine Änderung pro Commit
+- ✅ Nach Änderungen: Tests durchführen
+- ✅ Bestehenden Code iterieren statt neu schreiben
+- ❌ **KEINE** Codeduplikation
+- ❌ **KEINE** Dateien >200-300 Zeilen (refaktorisieren!)
+- ❌ **KEINE** Mock-Daten in dev/prod Code
+
+### Arbeitsablauf
+- ✅ Nach Änderungen Server neu starten zum Testen
+- ✅ Vor neuem Server-Start: alte Server beenden
+- ✅ Nur Code ändern in geöffneten Dateien (sonst User fragen)
+- ✅ Schrittweise vorgehen - keine autonomen Aktionen
+- ❌ **NIEMALS** `.env` überschreiben ohne Bestätigung
+
+---
+
+## 📚 Dokumentations-Regeln
+
+### Neue Dokumentation erstellen
+- ✅ In `docs/` mit passender Kategorie (setup/architecture/development/planning)
+- ✅ Format: `README_Topic.md`
+- ✅ In `README.md` und `docs/README.md` verlinken
+- ✅ Klare Struktur mit Emojis für bessere Lesbarkeit
+- ❌ **NICHT** im Root erstellen
+
+### Dokumentation aktualisieren
+- ✅ Immer prüfen, ob Docs noch aktuell sind
+- ✅ Widersprüchliche Infos korrigieren
+- ✅ Veraltete Docs nach `archive/` verschieben
+- ❌ **NICHT** einfach löschen (Archiv behalten!)
+
+### Dokumentations-Konventionen
+- ✅ Deutsch/Englisch gemischt ist OK (wie User spricht)
+- ✅ Code-Blöcke mit Syntax-Highlighting
+- ✅ Emojis für visuelle Struktur
+- ✅ Links zu verwandten Dokumentationen
+
+---
+
+## 🎯 Projekt-Spezifisches
+
+### Gmail to Paperless Workflow (v4.2)
+**Aktueller Stand:**
+- Gmail → `.eml` Export (Google Apps Script v4.2)
+- Google Drive → rclone sync → Hetzner Server
+- eml2pdf Service → PDF Konvertierung (Gotenberg)
+- Paperless-NGX Import mit OCR
+
+**ZWEI Google Accounts:**
+1. `philip@zepta.com` (MASTER - gdrive-philip)
+2. `phkoenig@gmail.com` (OFFICE - gdrive-office)
+
+**MASTER Script:**
+- Location: `scripts/master-gmail-to-paperless/`
+- Version: v4.2 mit `.eml` Export
+- Deployment: Über `.clasp.json` & clasp push/deploy
+
+### Deduplication (3 Ebenen)
+1. **Apps Script:** Folder-Existenz-Check (verhindert re-export)
+2. **Metadata JSON:** RFC Message-ID & SHA-256 Hashes
+3. **Paperless:** Native Content-Hash Deduplication
+
+**Wichtig:** "Failed imports" sind oft erfolgreiche Duplikaterkennung!
+
+### Folder Structure Rules
+**Google Drive (Source):**
+```
+Paperless-Emails/
+└── {timestamp}_{from}_{subject}/
+    ├── email.eml
+    ├── email-metadata.json
+    └── [attachments...]
+```
+
+**Server (via rclone):**
+```
+/data/emails/ 
+└── (gleiche Struktur wie Google Drive)
+```
+
+**Paperless Consume:**
+```
+/usr/src/paperless/consume/
+└── [flattened PDFs with metadata]
+```
+
+### Galaxy System KI Navigation
+- **Status:** Zukunftsprojekt - **BEHALTEN!**
+- **Ziel:** AI-gesteuerte intelligente Dokumentenzuordnung
+- **Location:** `docs/architecture/README_GALAXY_SYSTEM_KI_NAVIGATION.md`
+- ❌ **NICHT** archivieren oder löschen!
+
+### Technologie-Stack
+- **Server:** Hetzner VPS mit Docker Compose
+- **Reverse Proxy:** Caddy
+- **Document Management:** Paperless-NGX
+- **Email Processing:** Google Apps Script v4.2
+- **File Sync:** rclone (Google Drive → Server)
+- **PDF Conversion:** eml2pdf + Gotenberg
+- **Admin Interface:** Paperless MCP (Python & TypeScript)
+- **Filter Logic:** Supabase (Whitelist/Blacklist)
+
+---
+
+## 🚫 Dinge, die NIEMALS getan werden sollten
+
+1. ❌ Dokumentations-Dateien im Root ablegen
+2. ❌ Große Dateien (>300 Zeilen) ohne Refactoring
+3. ❌ Code duplizieren statt refaktorisieren
+4. ❌ SSH für Paperless-Administration (verwende MCP!)
+5. ❌ `.env` Dateien committen oder überschreiben
+6. ❌ `pip` verwenden (immer `uv`!)
+7. ❌ Veraltete Dokumentation löschen (nach archive/ verschieben!)
+8. ❌ Galaxy System Dokumentation entfernen
+9. ❌ Mock-Daten in dev/prod Code
+10. ❌ Ohne User-Bestätigung commiten
+11. ❌ Git force push ohne explizite Erlaubnis
+12. ❌ Code in nicht geöffneten Dateien ändern
+
+---
+
+## 👤 User-Präferenzen (Philip)
+
+- **Sprache:** Deutsch/Englisch gemischt (wie es passt)
+- **Ansprache:** Du
+- **Arbeitsstil:** Schrittweise, keine autonomen Aktionen
+- **Tool-Präferenzen:** 
+  - Git: GitHub CLI (`gh`)
+  - Python: `uv` Package Manager
+  - Dev Server: `npm run dev`
+- **Code-Organisation:** Sauber, minimal, "Do One Thing Right"
+- **Root-Verzeichnis:** Immer aufgeräumt und professionell
+
+---
+
+## 📝 Notizen für AI-Sessions
+
+Wenn du als AI-Agent in diesem Projekt arbeitest:
+
+1. **START_HERE.md lesen:** `onboarding/START_HERE.md` enthält vollständige Projekt-Details
+2. **MCP verwenden:** Für Paperless-Operationen IMMER Paperless MCP Tools nutzen
+3. **Ordnung halten:** Root-Verzeichnis sauber halten, Docs in `docs/`, Temp in `temp/`
+4. **User fragen:** Bei Unklarheiten lieber fragen als raten
+5. **Dokumentation aktualisieren:** Nach größeren Änderungen Docs prüfen und aktualisieren
+6. **Galaxy System beachten:** Nicht löschen - ist wichtig für zukünftige Features!
+
+---
+
+_Diese Regeln wurden am 17.10.2025 erstellt und reflektieren den aktuellen Stand des Projekts (v4.2)._
+

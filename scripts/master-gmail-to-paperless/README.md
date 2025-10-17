@@ -1,12 +1,18 @@
-# 📧 Paperless Email Export - Master Script v3
+# 📧 Paperless Email Export - Master Script v4.2
 
-## 🎯 Überblick
+## 🎯 Übersicht
 
-Dies ist das **MASTER-SCRIPT** für beide Google Accounts:
+Dies ist das **MASTER-SCRIPT v4.2** für beide Google Accounts:
 - **philip@zepta.com** (ZEPTA Google Workspace)
 - **phkoenig@gmail.com** (Privater Account)
 
 Das gleiche Script läuft in beiden Accounts und exportiert E-Mails automatisch zu Paperless-NGX.
+
+**NEU in v4.2:**
+- ✅ E-Mails als `.eml` exportiert (RFC 2822 Standard - enthält ALLE Header!)
+- ✅ Server konvertiert via `eml2pdf` + Gotenberg zu PDF
+- ✅ Vereinfachte Metadata (nur Paperless-spezifische Daten)
+- ✅ Einheitliche Ordnerstruktur: E-Mail + Anhänge + metadata.json pro Ordner
 
 ---
 
@@ -34,16 +40,21 @@ Das gleiche Script läuft in beiden Accounts und exportiert E-Mails automatisch 
 
 Das Script führt **automatisch alle 5 Minuten** folgende Aufgaben aus:
 
-### **Stufe 1: Alle E-Mail-Anhänge exportieren**
+### **Hauptfunktion: `exportFilteredEmails()` (v4.2)**
 - Durchsucht **alle E-Mails der letzten 7 Tage**
-- Filtert **relevante Dateitypen** (PDF, Office-Dokumente, etc.)
-- Erstellt für jede E-Mail einen eigenen Ordner in `Paperless-Attachments/`
-- Speichert alle Anhänge + Metadaten-JSON
+- Wendet **intelligenten Filter** an (Supabase Whitelist/Blacklist)
+- Erstellt für jede E-Mail einen eigenen Ordner in `Paperless-Emails/`
+- Speichert:
+  - `email.eml` - RAW E-Mail mit allen Headern (RFC 2822)
+  - `email-metadata.json` - Filter-Entscheidung, SHA-256 Hashes, Links
+  - `attachment-*.xyz` - Alle relevanten Anhänge
 
-### **Stufe 2: E-Mails mit "Paperless" Label als PDF**
-- Exportiert E-Mail-Bodies als PDF
-- Speichert in `Paperless-Emails/`
-- Entfernt Label nach Export
+### **Intelligenter Filter (v4)**
+1. User-Label "Paperless" → IMMER EXPORTIEREN
+2. Blacklist-Check → SOFORT ABLEHNEN
+3. Whitelist-Check → SOFORT AKZEPTIEREN  
+4. Keine Anhänge → ABLEHNEN
+5. KI-Bewertung → Bei Grenzfällen (optional)
 
 ---
 
@@ -136,12 +147,28 @@ debugEmailsWithAttachments()
 
 ## 📝 Änderungshistorie
 
+### **v4.2 (17.10.2025) - .eml Export**
+- ✅ E-Mails als `.eml` exportiert (RFC 2822 Standard)
+- ✅ Server-seitige PDF-Konvertierung via `eml2pdf` + Gotenberg
+- ✅ Vereinfachte Metadata (nur Paperless-spezifische Daten)
+- ✅ Einheitliche Ordnerstruktur pro E-Mail
+- ✅ Alle Header bleiben erhalten in `.eml` Datei
+
+### **v4.1 (17.10.2025) - Message-ID & SHA-256**
+- ✅ RFC Message-ID Extraktion (weltweit eindeutig)
+- ✅ SHA-256 Hashes für Anhänge (Duplikaterkennung)
+- ✅ Verbesserte Metadata-Struktur
+
+### **v4.0 (16.10.2025) - Intelligenter Filter**
+- ✅ Supabase Whitelist/Blacklist Integration
+- ✅ KI-gestützte Bewertung (Google Gemini)
+- ✅ Logging aller Entscheidungen
+
 ### **v3.0 (16.10.2025) - Master Script**
 - ✅ Universelles Script für beide Accounts
 - ✅ Deployed zu philip@zepta.com
 - ✅ Deployed zu phkoenig@gmail.com
 - ✅ Automatische Account-Erkennung via `Session.getActiveUser().getEmail()`
-- ✅ Metadata zeigt `exportedFrom` für besseres Tracking
 
 ### **v2.0 (15.10.2025)**
 - E-Mail-Bodies als PDF export
@@ -184,11 +211,17 @@ debugEmailsWithAttachments()
 
 ---
 
+## 📚 Weitere Dokumentation
+
+- **[Kompletter Workflow](../../docs/README_Complete_Workflow.md)** - Gmail → Paperless (v4.2)
+- **[Email Filter](../../docs/README_Email_Filter.md)** - Intelligenter Filter
+- **[Duplikaterkennung](../../docs/README_Deduplication.md)** - Message-ID & SHA-256
+
 ## 👨‍💻 Entwickler
 
 Philip König (phkoenig@gmail.com)
 
 ## 📅 Letztes Update
 
-16.10.2025 - Master Script v3.0 deployed
+17.10.2025 - Master Script v4.2 deployed
 

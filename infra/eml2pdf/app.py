@@ -50,27 +50,53 @@ def extract_body(eml_path: str) -> str:
 
 
 def main():
-    seen = set()
-    while True:
-        try:
-            for name in os.listdir(MAIL_DIR):
-                if not name.lower().endswith(".eml"):
-                    continue
-                path = os.path.join(MAIL_DIR, name)
-                if path in seen:
-                    continue
-                try:
-                    body = extract_body(path)
-                    base = os.path.splitext(os.path.basename(name))[0]
-                    dest = os.path.join(OUT_DIR, f"{base}.pdf")
-                    render_html_to_pdf(body, dest)
-                    seen.add(path)
-                except Exception:
-                    # skip and retry later
-                    continue
-            time.sleep(10)
-        except KeyboardInterrupt:
-            break
+    print(f"🚀 eml2pdf started!")
+    print(f"📂 Input dir: {MAIL_DIR}")
+    print(f"📂 Output dir: {OUT_DIR}")
+    print(f"🌐 Gotenberg URL: {GOTENBERG_URL}")
+    
+    # Rekursiv durch alle Unterordner suchen
+    print(f"🔍 Scanning {MAIL_DIR} for .eml files...")
+    file_count = 0
+    processed_count = 0
+    
+    for root, dirs, files in os.walk(MAIL_DIR):
+        for name in files:
+            if not name.lower().endswith(".eml"):
+                continue
+            file_count += 1
+            path = os.path.join(root, name)
+            
+            # Prüfe ob PDF bereits existiert
+            base = os.path.splitext(os.path.basename(name))[0]
+            rel_dir = os.path.relpath(root, MAIL_DIR)
+            if rel_dir == ".":
+                dest = os.path.join(OUT_DIR, f"{base}.pdf")
+            else:
+                dest_dir = os.path.join(OUT_DIR, rel_dir)
+                os.makedirs(dest_dir, exist_ok=True)
+                dest = os.path.join(dest_dir, f"{base}.pdf")
+            
+            if os.path.exists(dest):
+                print(f"⏭️  PDF already exists: {base}.pdf")
+                continue
+                
+            try:
+                print(f"📧 Processing: {name}")
+                body = extract_body(path)
+                print(f"   Body extracted: {len(body)} chars")
+                print(f"   Converting to PDF: {dest}")
+                render_html_to_pdf(body, dest)
+                processed_count += 1
+                print(f"✅ Success: {name} → {base}.pdf")
+            except Exception as e:
+                print(f"❌ Error processing {path}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+    
+    print(f"📊 Found {file_count} .eml files, processed {processed_count} new PDFs")
+    print(f"✅ eml2pdf completed!")
 
 
 if __name__ == "__main__":

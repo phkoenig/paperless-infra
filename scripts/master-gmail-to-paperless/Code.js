@@ -1,5 +1,12 @@
 /**
- * Gmail zu Paperless Export Script - MASTER VERSION v4.1
+ * Gmail zu Paperless Export Script - MASTER VERSION v4.2
+ * 
+ * NEU in v4.2 (.eml Export mit eml2pdf):
+ * - E-Mails werden als .eml gespeichert (RFC 2822 Standard - enthält ALLE Header!)
+ * - Server konvertiert .eml → PDF via eml2pdf + Gotenberg
+ * - Vereinfachte Metadata (nur Paperless-spezifische Daten)
+ * - Einheitliche Ordnerstruktur: E-Mail + Anhänge + metadata.json pro Ordner
+ * - Performance-Optimierung: Filter-Listen nur einmal laden
  * 
  * NEU in v4.1:
  * - RFC Message-ID Extraktion (weltweit eindeutig)
@@ -14,6 +21,13 @@
  * UNIVERSAL: Funktioniert für ALLE Google Accounts
  * - philip@zepta.com (ZEPTA Workspace)
  * - phkoenig@gmail.com (Privat)
+ * 
+ * STRUKTUR:
+ * Paperless-Emails/
+ * └── [timestamp]_[sender]_[subject]/
+ *     ├── email.eml              # RAW E-Mail (ALLE Header!)
+ *     ├── email-metadata.json    # Filter-Entscheidung, SHA-256, Links
+ *     └── attachment-*.xyz       # Anhänge (falls vorhanden)
  */
 
 // ============================================
@@ -65,16 +79,14 @@ const RELEVANT_EXTENSIONS = [
 function exportToPaperless() {
   const userEmail = Session.getActiveUser().getEmail();
   const startTime = new Date().getTime();
-  console.log(`🚀 Paperless Export v4 gestartet für ${userEmail}...`);
+  console.log(`🚀 Paperless Export v4.1 gestartet für ${userEmail}...`);
   
-  // Filter-Listen aus Supabase laden (Cache für Performance)
+  // Filter-Listen aus Supabase laden (nur EINMAL für Performance!)
   const filterLists = loadFilterLists();
   
-  // Stufe 1: ALLE E-Mail-Anhänge exportieren (mit Filter!)
-  exportAllAttachments(filterLists);
-  
-  // Stufe 2: E-Mails mit "Paperless" Label als PDF exportieren
-  exportLabelledEmailsAsPDF();
+  // NEU: Einheitlicher Export (E-Mails + Anhänge in einem Schritt)
+  // Speichert als .eml + metadata.json + Anhänge pro E-Mail-Ordner
+  exportFilteredEmails(filterLists);
   
   const elapsed = (new Date().getTime() - startTime) / 1000;
   console.log(`✅ Paperless Export abgeschlossen in ${elapsed}s`);
@@ -234,51 +246,127 @@ function exportAllAttachments(filterLists) {
 }
 
 /**
- * Stufe 2: E-Mails mit "Paperless" Label als PDF exportieren
+ * Stufe 2: Alle E-Mails exportieren (mit intelligentem Filter)
+ * Speichert als .eml + metadata.json (+ Anhänge falls vorhanden)
  */
-function exportLabelledEmailsAsPDF() {
-  console.log('📄 Exportiere E-Mails mit Paperless-Label...');
+function exportFilteredEmails(filterLists) {
+  console.log('📧 Exportiere alle E-Mails der letzten 7 Tage...');
   
-  const emailsFolder = getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
+  const emailsRootFolder = getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
   
-  const label = GmailApp.getUserLabelByName(PAPERLESS_LABEL);
-  if (!label) {
-    console.log('⚠️ Label "Paperless" nicht gefunden');
-    return;
-  }
+  // ALLE E-Mails der letzten 7 Tage (ohne to: Filter - findet alles!)
+  const searchQuery = 'newer_than:7d';
+  const threads = GmailApp.search(searchQuery, 0, 200);
   
-  const threads = label.getThreads(0, 20);
+  console.log(`🔍 ${threads.length} E-Mail-Threads gefunden`);
+  
   let emailCount = 0;
+  let filteredCount = 0;
   
   threads.forEach(thread => {
     const messages = thread.getMessages();
     
     messages.forEach(message => {
+      const startTime = new Date().getTime();
+      
       try {
-        // Prüfen ob bereits exportiert
-        const timestamp = Utilities.formatDate(message.getDate(), 'GMT+1', 'yyyy-MM-dd_HH-mm-ss');
-        const subject = cleanString(message.getSubject()).substring(0, 50);
-        const filename = `${timestamp}_${subject}.pdf`;
+        // ======== INTELLIGENTER FILTER ========
+        const filterDecision = shouldExportEmail(message, filterLists);
         
-        if (fileExists(emailsFolder, filename)) {
-          console.log(`⏭️ E-Mail bereits exportiert: ${filename}`);
+        if (!filterDecision.shouldExport) {
+          filteredCount++;
+          console.log(`🚫 Gefiltert: ${message.getSubject().substring(0, 50)} (${filterDecision.reason})`);
+          logFilterDecision(message, filterDecision, startTime);
+          return; // ← E-Mail wird NICHT exportiert
+        }
+        
+        console.log(`✅ Export: ${message.getSubject().substring(0, 50)} (${filterDecision.reason})`);
+        // ======================================
+        
+        // E-Mail-Ordner ID erstellen
+        const timestamp = Utilities.formatDate(message.getDate(), 'GMT+1', 'yyyy-MM-dd_HH-mm-ss');
+        const fromShort = cleanString(message.getFrom().split('<')[0].trim()).substring(0, 20);
+        const subjectShort = cleanString(message.getSubject()).substring(0, 30);
+        const emailFolderId = `${timestamp}_${fromShort}_${subjectShort}`;
+        
+        // Prüfen ob Ordner bereits existiert (verhindert Duplikate)
+        if (folderExists(emailsRootFolder, emailFolderId)) {
+          console.log(`⏭️ Ordner bereits vorhanden: ${emailFolderId}`);
           return;
         }
         
-        const pdfBlob = convertEmailToPDF(message);
-        emailsFolder.createFile(pdfBlob.setName(filename));
-        console.log(`📄 E-Mail als PDF exportiert: ${filename}`);
+        // E-Mail-Unterordner erstellen
+        const emailFolder = getOrCreateSubFolder(emailsRootFolder, emailFolderId);
+        
+        // 1. E-Mail als .eml speichern (enthält ALLE Header!)
+        const emlData = saveEmailAsEML(message);
+        emailFolder.createFile(emlData.blob);
+        console.log(`📧 EML gespeichert: ${emlData.filename}`);
+        
+        // 2. Anhänge speichern (falls vorhanden)
+        const attachments = message.getAttachments();
+        const relevantAttachments = [];
+        
+        attachments.forEach(attachment => {
+          const contentType = attachment.getContentType();
+          const fileName = attachment.getName();
+          const fileExtension = fileName.split('.').pop().toLowerCase();
+          
+          if (isRelevantAttachment(contentType, fileExtension, fileName)) {
+            relevantAttachments.push(attachment);
+            emailFolder.createFile(attachment.copyBlob().setName(attachment.getName()));
+            console.log(`📎 Anhang gespeichert: ${attachment.getName()}`);
+          }
+        });
+        
+        // 3. Vereinfachte Metadata speichern (nur unsere zusätzlichen Daten)
+        const rfcMessageId = extractRFCMessageID(message);
+        const metadata = {
+          // Paperless-spezifische Metadaten (nicht in .eml enthalten)
+          exportTimestamp: new Date().toISOString(),
+          exportedBy: 'Paperless-Email-Export-Script-v4.2-Master',
+          exportedFrom: Session.getActiveUser().getEmail(),
+          
+          // Filter-Entscheidung
+          filterDecision: filterDecision,
+          
+          // Anhänge mit SHA-256 Hashes
+          attachments: relevantAttachments.map(att => createAttachmentMetadata(att)),
+          attachmentCount: relevantAttachments.length,
+          
+          // Gmail-Links (zum Zurückverfolgen)
+          gmailDeepLink: `https://mail.google.com/mail/u/0/#inbox/${thread.getId()}`,
+          gmailDirectLink: `https://mail.google.com/mail/u/0/#search/rfc822msgid%3A${rfcMessageId}`,
+          
+          // Version
+          metadataVersion: '4.1',
+          schemaType: 'paperless-email-export',
+          
+          // Hinweis: E-Mail-Header (From, To, Subject, Date, Message-ID, etc.) sind in der .eml Datei!
+          note: 'All email headers (From, To, Subject, Date, Message-ID, Thread-ID) are preserved in the .eml file'
+        };
+        
+        // JSON speichern
+        const metadataBlob = Utilities.newBlob(
+          JSON.stringify(metadata, null, 2), 
+          'application/json', 
+          'email-metadata.json'
+        );
+        emailFolder.createFile(metadataBlob);
+        
+        console.log(`✅ E-Mail exportiert: ${emailFolderId}/ (.eml + ${relevantAttachments.length} Anhänge)`);
         emailCount++;
         
+        // Log zu Supabase
+        logFilterDecision(message, filterDecision, startTime);
+        
       } catch (error) {
-        console.error(`❌ PDF-Export Fehler: ${error.message}`);
+        console.error(`❌ E-Mail-Export Fehler: ${error.message}`);
       }
     });
-    
-    thread.removeLabel(label);
   });
   
-  console.log(`✅ ${emailCount} E-Mails als PDF exportiert`);
+  console.log(`✅ ${emailCount} E-Mails exportiert, ${filteredCount} gefiltert`);
 }
 
 // ============================================
@@ -644,27 +732,28 @@ function createAttachmentMetadata(attachment) {
 // HELPER-FUNKTIONEN (Original)
 // ============================================
 
-function convertEmailToPDF(message) {
-  const subject = message.getSubject();
-  const from = message.getFrom();
-  const to = message.getTo();
-  const date = message.getDate();
-  const body = message.getPlainBody();
-  
-  const pdfContent = `
-E-Mail Export
-=============
-
-Von: ${from}
-An: ${to}
-Datum: ${date}
-Betreff: ${subject}
-
-Inhalt:
-${body}
-  `;
-  
-  return Utilities.newBlob(pdfContent, 'application/pdf', 'email.pdf');
+/**
+ * Speichert E-Mail als .eml Datei (RFC 2822 Standard)
+ * Die .eml Datei enthält ALLE E-Mail-Header und wird später von eml2pdf zu PDF konvertiert
+ */
+function saveEmailAsEML(message) {
+  try {
+    // Hole RAW E-Mail Content (komplettes .eml Format mit allen Headern)
+    const rawContent = message.getRawContent();
+    
+    // Erstelle .eml Blob
+    const timestamp = Utilities.formatDate(message.getDate(), 'GMT+1', 'yyyy-MM-dd_HH-mm-ss');
+    const subject = cleanString(message.getSubject()).substring(0, 50);
+    const filename = `${timestamp}_${subject}.eml`;
+    
+    const emlBlob = Utilities.newBlob(rawContent, 'message/rfc822', filename);
+    
+    return { blob: emlBlob, filename: filename };
+    
+  } catch (error) {
+    console.error(`❌ Fehler beim EML-Export: ${error.message}`);
+    throw error;
+  }
 }
 
 function getOrCreateFolder(folderName) {
@@ -726,7 +815,7 @@ function cleanString(str) {
 // ============================================
 
 function setupPaperlessExport() {
-  console.log('🔧 Setup Paperless Export v4 Master...');
+  console.log('🔧 Setup Paperless Export v4.2 Master...');
   
   getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
   getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
@@ -741,12 +830,47 @@ function setupPaperlessExport() {
   const filterLists = loadFilterLists();
   console.log(`✅ Supabase verbunden: ${filterLists.blacklist.length} Blacklist, ${filterLists.whitelist.length} Whitelist`);
   
-  console.log('✅ Setup v4 Master abgeschlossen');
+  console.log('✅ Setup v4.2 Master abgeschlossen (.eml Export aktiviert)');
 }
 
 function testExport() {
-  console.log('🧪 Test-Modus aktiviert (v4 Master)');
+  console.log('🧪 Test-Modus aktiviert (v4.2 Master - .eml Export)');
   exportToPaperless();
+}
+
+/**
+ * Debug: Test .eml Export einzeln
+ */
+function debugEMLExport() {
+  console.log('🔍 Debug: Teste .eml Export...');
+  
+  // Erste E-Mail aus Inbox holen
+  const threads = GmailApp.getInboxThreads(0, 1);
+  if (threads.length === 0) {
+    console.log('❌ Keine E-Mails im Posteingang');
+    return;
+  }
+  
+  const message = threads[0].getMessages()[0];
+  console.log('📧 E-Mail gefunden:', message.getSubject());
+  
+  try {
+    // .eml erstellen
+    const emlData = saveEmailAsEML(message);
+    console.log('✅ EML erstellt:', emlData.filename);
+    
+    // Google Drive Ordner
+    const folder = getOrCreateFolder('Paperless-Emails');
+    console.log('📁 Ordner gefunden:', folder.getName());
+    
+    // Datei speichern
+    const file = folder.createFile(emlData.blob);
+    console.log('✅ Datei gespeichert:', file.getName(), file.getUrl());
+    
+  } catch (error) {
+    console.error('❌ Fehler:', error.message);
+    console.error('Stack:', error.stack);
+  }
 }
 
 function debugEmailsWithAttachments() {

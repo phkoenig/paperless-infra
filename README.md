@@ -4,11 +4,13 @@ Vollautomatische papierlose Dokumentenverwaltung mit Paperless-NGX auf Hetzner C
 
 ## 🎯 Features
 
-- **Dokumentenmanagement:** Automatischer Import, OCR, Suchfunktion
-- **E-Mail-Integration:** IMAP-Import von philip@zepta.com und office@zepta.com
-- **Nextcloud-Sync:** Hybrid-Speicherstrategie (Hot SSD + Cold HDD)
-- **AI-Klassifikation:** Automatische Kategorisierung und Metadaten-Extraktion
+- **Dokumentenmanagement:** Automatischer Import, OCR, Volltext-Suche
+- **E-Mail-Integration:** Apps Script v4.2 + eml2pdf für philip@zepta.com und phkoenig@gmail.com
+- **Intelligenter Filter:** Supabase Whitelist/Blacklist + KI-Bewertung (Google Gemini)
+- **Duplikaterkennung:** 3-Ebenen (Apps Script, eml2pdf, Paperless Content-Hash)
+- **MCP Administration:** Paperless-Verwaltung via Cursor AI (kein SSH nötig!)
 - **Multi-Language OCR:** Deutsch, Englisch, Französisch, Spanisch
+- **Nextcloud-Sync:** Hybrid-Speicherstrategie (Hot SSD + Cold HDD)
 
 ## 🏗️ Architektur
 
@@ -52,39 +54,41 @@ Vollautomatische papierlose Dokumentenverwaltung mit Paperless-NGX auf Hetzner C
 
 ```
 paperless/
-├── infra/                           # Docker Compose Stack
+├── README.md                        # ⭐ Hauptdokumentation
+├── .cursorrules                     # 🆕 Cursor AI Regeln
+├── .gitignore                       # Git Ignore Rules
+│
+├── infra/                           # 🏗️ Infrastruktur & Docker Stack
 │   ├── docker-compose.yml          # Haupt-Stack-Definition
+│   ├── cloud-init.yaml             # Server Provisioning
 │   ├── paperless.env.example       # Environment-Template
 │   ├── caddy/Caddyfile             # Reverse Proxy + TLS
 │   ├── eml2pdf/                    # E-Mail zu PDF Konverter
 │   ├── invoice-ai/                 # AI-Metadaten-Extraktion
 │   └── rclone/                     # Nextcloud-Sync Config
 │
-├── scripts/                         # Automation Scripts
-│   └── master-gmail-to-paperless/  # Google Apps Script (v3)
+├── scripts/                         # 🔧 Automation Scripts
+│   ├── master-gmail-to-paperless/  # MASTER: Google Apps Script (v4.2)
+│   ├── paperless-mcp/              # MCP Server (Python)
+│   ├── paperless-mcp-nloui/        # MCP Server (TypeScript)
+│   └── paperless-cli/              # CLI Tools
 │
-├── config/                          # Configuration Files
+├── config/                          # ⚙️ Configuration Files
 │   └── categories_mapping.json     # AI Taxonomy
 │
-├── docs/                            # Dokumentation
-│   ├── README_Deploy.md            # Deployment Guide
-│   ├── README_Usage.md             # User Guide
-│   ├── README_AI_Classifier.md     # AI Integration
-│   └── README_Email_Integration.md # Email Workflow
+├── docs/                            # 📚 Komplette Dokumentation
+│   ├── README.md                   # 🗺️ Dokumentations-Navigation
+│   ├── setup/                      # Setup & Konfiguration
+│   ├── architecture/               # Architektur & Workflow
+│   ├── development/                # Entwicklung & Administration
+│   └── planning/                   # Planung & Status
 │
-├── onboarding/                      # 🆕 Onboarding & Startup-Prompts
-├── ideas/                           # 🆕 Lose Ideen & Notizen
-├── tests/                           # Test Scripts & Fixtures
-├── examples/                        # Code Examples
-├── archive/                         # Old/Deprecated Files
-├── temp/                            # Temporary Files (gitignored)
-│
-├── README.md                        # This file
-├── GOOGLE_ACCOUNTS_SETUP.md        # Google Accounts Documentation
-├── SSH_ACCESS.md                   # SSH Access Guide
-├── DEPLOYMENT_STATUS.md            # Current Status
-├── cloud-init.yaml                 # Server Provisioning
-└── .gitignore                      # Git Ignore Rules
+├── onboarding/                      # 🚀 Onboarding & Startup-Prompts
+├── ideas/                           # 💡 Ideen & Future Work
+├── tests/                           # 🧪 Test Scripts & Fixtures
+├── examples/                        # 📝 Code Examples
+├── archive/                         # 📦 Old/Deprecated Files
+└── temp/                            # 🗂️ Temporary Files (gitignored)
 ```
 
 ## 🔧 Services
@@ -98,27 +102,35 @@ paperless/
 
 ## 📚 Dokumentation
 
+> **🗺️ [Vollständige Dokumentations-Navigation](docs/README.md)** - Alle Docs übersichtlich strukturiert!
+
 ### **🚀 Neu hier? Start hier:**
 - **[onboarding/START_HERE.md](onboarding/START_HERE.md)** - Umfassender Onboarding-Prompt für neue Cursor AI Sessions
 - **[onboarding/QUICK_START.md](onboarding/QUICK_START.md)** - Kurze Version für schnelle Sessions
-- **[onboarding/](onboarding/)** - Alle Onboarding-Materialien
 
 ### **Setup & Deployment:**
-- [Deploy Guide](docs/README_Deploy.md) - Server-Setup und Deployment
-- [SSH Access](SSH_ACCESS.md) - SSH-Zugang und Konfiguration
-- [Google Accounts Setup](GOOGLE_ACCOUNTS_SETUP.md) - Beide Google Accounts Integration
+- [Deploy Guide](docs/setup/README_Deploy.md) - Server-Setup und Deployment
+- [SSH Access](docs/setup/SSH_ACCESS.md) - SSH-Zugang und Konfiguration
+- [Google Accounts Setup](docs/setup/GOOGLE_ACCOUNTS_SETUP.md) - Beide Google Accounts Integration
 
-### **Features & Usage:**
-- **[Workflow erklärt (ELI5)](docs/README_Workflow_ELI5.md)** - Der komplette Workflow für Dummies erklärt!
-- **[Email Filter](docs/README_Email_Filter.md)** - Intelligenter Filter mit Supabase & KI (v4)
-- **[Message IDs & Hashes](docs/README_Message_IDs.md)** - 🆕 RFC Message-ID & SHA-256 (v4.1)
-- [Usage Guide](docs/README_Usage.md) - Paperless Web-UI und Workflows
-- [Email Integration](docs/README_Email_Integration.md) - E-Mail-Workflow
-- [AI Classifier Guide](docs/README_AI_Classifier.md) - AI-Integration
+### **Architektur & Workflow:**
+- **[Kompletter Workflow v4.2](docs/architecture/README_Complete_Workflow.md)** ⭐ - Gmail → .eml → Paperless
+- **[Duplikaterkennung](docs/architecture/README_Deduplication.md)** - 3-Ebenen Deduplication
+- **[Galaxy System](docs/architecture/README_GALAXY_SYSTEM_KI_NAVIGATION.md)** 🚧 - KI-Navigation (geplant)
 
-### **Status & Planung:**
-- [Deployment Status](DEPLOYMENT_STATUS.md) - Aktueller Stand
-- [Project Plan](paperless-ngx-deployment.plan.md) - Projektplan
+### **Entwicklung & Administration:**
+- **[MCP Administration](docs/development/README_MCP_Administration.md)** - 🆕 Paperless via MCP (empfohlen!)
+- [Email Filter](docs/development/README_Email_Filter.md) - Intelligenter Filter mit Supabase & KI
+- [Usage Guide](docs/development/README_Usage.md) - Paperless Web-UI und Workflows
+
+### **Planung & Status:**
+- [Deployment Status](docs/planning/DEPLOYMENT_STATUS.md) - Aktueller Stand
+- [Deployment Plan](docs/planning/paperless-ngx-deployment.plan.md) - Infrastruktur-Konzept
+- [Reset Log](docs/planning/RESET_LOG.md) - System-Änderungen
+
+### **⚠️ Wichtig:**
+- **✅ Verwende Paperless MCP** für alle Paperless-Operationen (in Cursor AI integriert)
+- **❌ SSH-Zugriff** nur für Server-Wartung, NICHT für Paperless-Administration!
 
 ## 💰 Kostenoptimierung
 
