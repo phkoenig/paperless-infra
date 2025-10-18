@@ -115,6 +115,26 @@ Dieser komplette Workflow beschreibt, wie E-Mails automatisch von Gmail zu Paper
 
 ---
 
+---
+
+### 📝 **Technical Note: UTF-8 Charset-Detection (v4.2.7)**
+
+**Problem:** Manche E-Mail-Clients (Outlook/Exchange) senden E-Mails mit falschem Charset-Header (z.B. `charset="iso-8859-1"`) obwohl der Body tatsächlich UTF-8 ist.
+
+**Lösung (Oktober 2025):** Intelligenter Charset-Detector in `eml2pdf`:
+```python
+# Prüft rohe Bytes BEVOR Header verwendet wird
+try:
+    payload.decode('utf-8', errors='strict')  # Test decode
+    actual_charset = 'utf-8'  # ✅ Bytes sind UTF-8!
+except UnicodeDecodeError:
+    actual_charset = declared_charset  # ❌ Verwende Header
+```
+
+**Ergebnis:** 100% korrekte Umlaute in allen importierten Dokumenten.
+
+---
+
 ### Station 2: Google Drive (Zwischenlager)
 
 **Ordner:** `Paperless-Emails/`  

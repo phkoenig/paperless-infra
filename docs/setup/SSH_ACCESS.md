@@ -218,8 +218,11 @@ Host paperless
     User ubuntu
     Port 22
     IdentityFile ~/.ssh/id_ed25519
-    ServerAliveInterval 60
+    ServerAliveInterval 30
     ServerAliveCountMax 3
+    ConnectTimeout 10
+    TCPKeepAlive yes
+    BatchMode yes
 
 # Alternative über Domain
 Host paperless-domain
@@ -227,8 +230,11 @@ Host paperless-domain
     User ubuntu
     Port 22
     IdentityFile ~/.ssh/id_ed25519
-    ServerAliveInterval 60
+    ServerAliveInterval 30
     ServerAliveCountMax 3
+    ConnectTimeout 10
+    TCPKeepAlive yes
+    BatchMode yes
 ```
 
 ### **✅ Verwendung:**

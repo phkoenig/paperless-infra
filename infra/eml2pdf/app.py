@@ -3,6 +3,7 @@ import os
 import time
 import requests
 import json
+import quopri
 from email import policy
 from email.parser import BytesParser
 
@@ -20,12 +21,12 @@ def render_html_to_pdf(html_pages: list, dest_path: str) -> None:
     """
     files = {}
     
-    # Erste Seite (E-Mail Body)
-    files["index.html"] = ("index.html", html_pages[0].encode("utf-8"), "text/html")
+    # Erste Seite (E-Mail Body) - UTF-8 mit BOM für korrekte Zeichenkodierung
+    files["index.html"] = ("index.html", html_pages[0].encode("utf-8-sig"), "text/html; charset=utf-8")
     
-    # Optional: Attachments-Seite
+    # Optional: Attachments-Seite - UTF-8 mit BOM für korrekte Zeichenkodierung
     if len(html_pages) > 1 and html_pages[1]:
-        files["attachments.html"] = ("attachments.html", html_pages[1].encode("utf-8"), "text/html")
+        files["attachments.html"] = ("attachments.html", html_pages[1].encode("utf-8-sig"), "text/html; charset=utf-8")
     
     resp = requests.post(
         f"{GOTENBERG_URL}/forms/chromium/convert/html", 
@@ -42,33 +43,79 @@ def extract_body_and_attachments(eml_path: str) -> tuple:
     Extrahiert E-Mail Body + erstellt optional Attachments-Seite
     Returns: (body_html, attachments_page_html)
     """
-    # E-Mail parsen
+    # E-Mail parsen mit korrektem Encoding-Handling
     with open(eml_path, "rb") as f:
         msg = BytesParser(policy=policy.default).parse(f)
     
-    # Body extrahieren (wie bisher)
-    html = None
-    text = None
+    # Body extrahieren mit MANUELLEM Decoding (wegen Quoted-Printable Bug)
+    html_part = None
+    text_part = None
+    
     if msg.is_multipart():
         for part in msg.walk():
             ctype = part.get_content_type()
-            if ctype == "text/html" and html is None:
-                html = part.get_content()
-            elif ctype == "text/plain" and text is None:
-                text = part.get_content()
+            if ctype == "text/html" and html_part is None:
+                html_part = part
+            elif ctype == "text/plain" and text_part is None:
+                text_part = part
     else:
         ctype = msg.get_content_type()
         if ctype == "text/html":
-            html = msg.get_content()
+            html_part = msg
         elif ctype == "text/plain":
-            text = msg.get_content()
+            text_part = msg
+    
+    # INTELLIGENTES CHARSET-DETECTION (behebt UTF-8 Probleme)
+    html = None
+    text = None
+    
+    if html_part:
+        payload = html_part.get_payload(decode=True)  # Dekodiert Quoted-Printable/Base64
+        declared_charset = html_part.get_content_charset() or 'utf-8'
+        
+        # SMART FIX: Prüfe ob Payload tatsächlich UTF-8 ist (ignoriert falschen Header!)
+        actual_charset = declared_charset
+        try:
+            # Versuche UTF-8 decode (stricte Prüfung)
+            test_decode = payload.decode('utf-8', errors='strict')
+            # Erfolg! Payload ist valides UTF-8
+            actual_charset = 'utf-8'
+            print(f"   ✅ Charset-Override: Header={declared_charset} → Detected=utf-8")
+        except UnicodeDecodeError:
+            # Payload ist NICHT UTF-8, verwende deklarierten Charset
+            actual_charset = declared_charset
+            print(f"   📝 Using declared charset: {declared_charset}")
+        
+        # Dekodiere mit korrektem Charset
+        html = payload.decode(actual_charset, errors='replace')
+                    
+    elif text_part:
+        payload = text_part.get_payload(decode=True)
+        declared_charset = text_part.get_content_charset() or 'utf-8'
+        
+        # SMART FIX: Auch für Text-Parts
+        actual_charset = declared_charset
+        try:
+            test_decode = payload.decode('utf-8', errors='strict')
+            actual_charset = 'utf-8'
+            print(f"   ✅ Charset-Override (text): Header={declared_charset} → Detected=utf-8")
+        except UnicodeDecodeError:
+            actual_charset = declared_charset
+        
+        text = payload.decode(actual_charset, errors='replace')
     
     if html:
+        # UTF-8 Meta-Tag hinzufügen falls nicht vorhanden
+        if '<meta charset' not in html.lower():
+            if '<head>' in html:
+                html = html.replace('<head>', '<head>\n    <meta charset="UTF-8">')
+            else:
+                html = '<html><head><meta charset="UTF-8"></head><body>' + html + '</body></html>'
         body_html = html
     elif text:
-        body_html = f"<html><body><pre>{text}</pre></body></html>"
+        body_html = f'<html><head><meta charset="UTF-8"></head><body><pre>{text}</pre></body></html>'
     else:
-        body_html = "<html><body><p>(No body)</p></body></html>"
+        body_html = '<html><head><meta charset="UTF-8"></head><body><p>(No body)</p></body></html>'
     
     # Metadata lesen und Attachments-Seite erstellen
     metadata_path = os.path.join(os.path.dirname(eml_path), "email-metadata.json")

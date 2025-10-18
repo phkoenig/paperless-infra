@@ -35,7 +35,7 @@
 // ============================================
 
 // VERSION
-const SCRIPT_VERSION = 'v4.2.1';
+const SCRIPT_VERSION = 'v4.2.7-TEST';
 const SCRIPT_NAME = 'Paperless-Email-Export-Script-Master';
 const FULL_VERSION = `${SCRIPT_NAME}-${SCRIPT_VERSION}`;
 
@@ -47,8 +47,8 @@ const PAPERLESS_LABEL = 'Paperless';
 const SUPABASE_URL = 'https://jpmhwyjiuodsvjowddsm.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpwbWh3eWppdW9kc3Zqb3dkZHNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2MjY0NDQsImV4cCI6MjA2NDIwMjQ0NH0.x0WGKEQfTmv5MSR3e7YGgg_bvec2niphg6ZSho-T-6E';
 
-// Google Gemini API (Optional - für KI-Bewertung)
-const GEMINI_API_KEY = ''; // Später einfügen
+// Google Gemini API für KI-Bewertung
+const GEMINI_API_KEY = 'AIzaSyCoYAe5YLVvH0KzF9rLXH5xgT8fKm_2Qxw'; // Paperless Filter AI
 
 // Dateityp-Filter
 const RELEVANT_FILE_TYPES = [
@@ -128,8 +128,12 @@ function exportAllAttachments(filterLists) {
   console.log('📎 Exportiere E-Mail-Anhänge (mit intelligentem Filter)...');
   
   const attachmentsRootFolder = getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
-  const query = 'newer_than:30d';  // 30 Tage - unabhängig von gelesen/ungelesen
-  const threads = GmailApp.search(query, 0, 100);
+  
+  // 🧪 TEST-MODUS: Nur E-Mails von heute + max 20 E-Mails
+  const query = 'newer_than:1d';  // Nur heute (1 Tag)
+  const threads = GmailApp.search(query, 0, 20);  // Max 20 E-Mails für Tests
+  
+  console.log(`🧪 TEST-MODUS: Beschränkt auf E-Mails der letzten 24h, max 20 E-Mails`);
   
   let attachmentCount = 0;
   let skippedCount = 0;
@@ -148,9 +152,6 @@ function exportAllAttachments(filterLists) {
       if (!filterDecision.shouldExport) {
         filteredCount++;
         console.log(`🚫 Gefiltert: ${message.getSubject()} (${filterDecision.reason})`);
-        
-        // Log zu Supabase
-        logFilterDecision(message, filterDecision, startTime);
         return; // ← E-Mail wird NICHT exportiert
       }
       
@@ -276,9 +277,6 @@ function exportAllAttachments(filterLists) {
           registerInPaperlessIndex(message, attachmentMetadata, emailFolder.getId());
           // ================================================
           
-          // Log zu Supabase
-          logFilterDecision(message, filterDecision, startTime);
-          
         } catch (error) {
           console.error(`❌ Fehler beim Export: ${error.message}`);
         }
@@ -298,11 +296,11 @@ function exportFilteredEmails(filterLists) {
   
   const emailsRootFolder = getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
   
-  // ALLE E-Mails der letzten 30 Tage (ohne is:unread Filter - findet gelesen & ungelesen!)
-  const searchQuery = 'newer_than:30d';
-  const threads = GmailApp.search(searchQuery, 0, 200);
+  // 🧪 TEST-MODUS: Nur E-Mails von heute + max 20 E-Mails
+  const searchQuery = 'newer_than:1d';  // Nur heute (1 Tag)
+  const threads = GmailApp.search(searchQuery, 0, 20);  // Max 20 E-Mails für Tests
   
-  console.log(`🔍 ${threads.length} E-Mail-Threads gefunden`);
+  console.log(`🧪 TEST-MODUS: ${threads.length} Threads der letzten 24h (max 20)`);
   
   let emailCount = 0;
   let filteredCount = 0;
@@ -320,7 +318,6 @@ function exportFilteredEmails(filterLists) {
         if (!filterDecision.shouldExport) {
           filteredCount++;
           console.log(`🚫 Gefiltert: ${message.getSubject().substring(0, 50)} (${filterDecision.reason})`);
-          logFilterDecision(message, filterDecision, startTime);
           return; // ← E-Mail wird NICHT exportiert
         }
         
@@ -416,9 +413,6 @@ function exportFilteredEmails(filterLists) {
         registerInPaperlessIndex(message, attachmentMetadata, emailFolder.getId());
         // ================================================
         
-        // Log zu Supabase
-        logFilterDecision(message, filterDecision, startTime);
-        
       } catch (error) {
         console.error(`❌ E-Mail-Export Fehler: ${error.message}`);
       }
@@ -485,17 +479,22 @@ function shouldExportEmail(message, filterLists) {
     };
   }
   
-  // STUFE 5: KI-Bewertung für Grenzfälle
-  if (GEMINI_API_KEY) {
-    const aiScore = evaluateWithAI(message);
-    if (aiScore >= 7) {
+  // STUFE 5: KI-Bewertung für Grenzfälle (optional)
+  // E-Mail hat Anhänge, aber keine Whitelist-Treffer
+  try {
+    const aiEvaluation = evaluateWithAI(from, subject, body, attachments);
+    if (aiEvaluation && aiEvaluation.score >= 7) {
       return {
         shouldExport: true,
-        reason: 'KI-Bewertung positiv',
-        score: aiScore,
-        matchedRules: ['ai-approval']
+        reason: `KI-Bewertung: ${aiEvaluation.reasoning}`,
+        score: aiEvaluation.score,
+        matchedRules: ['ai-positive'],
+        aiScore: aiEvaluation.score,
+        aiReasoning: aiEvaluation.reasoning
       };
     }
+  } catch (error) {
+    console.warn(`⚠️ KI-Bewertung fehlgeschlagen: ${error.message}`);
   }
   
   // DEFAULT: Im Zweifel NICHT exportieren
@@ -591,50 +590,75 @@ function checkWhitelist(from, subject, attachments, whitelist) {
 }
 
 /**
- * KI-Bewertung mit Google Gemini (optional)
+ * KI-Bewertung mit Google Gemini für Grenzfälle
+ * Bewertet E-Mails die weder auf Whitelist noch Blacklist sind
  */
-function evaluateWithAI(message) {
+function evaluateWithAI(from, subject, body, attachments) {
   if (!GEMINI_API_KEY) {
-    return 5; // Neutral Score wenn keine KI verfügbar
+    return null;
   }
   
-  try {
-    const prompt = `
-Bewerte diese E-Mail auf einer Skala von 0-10, ob sie archivierungswürdig für ein professionelles Dokumentenmanagementsystem ist.
+  const attachmentInfo = attachments.map(att => ({
+    name: att.getName(),
+    type: att.getContentType(),
+    size: att.getSize()
+  }));
+  
+  const prompt = `
+Du bist ein intelligenter E-Mail-Filter für ein Dokumentenmanagementsystem (Paperless-NGX).
 
-Von: ${message.getFrom()}
-Betreff: ${message.getSubject()}
-Anhänge: ${message.getAttachments().length}
+Analysiere diese E-Mail und bewerte, ob sie archiviert werden soll:
 
-Kriterien:
-- 10: Rechnungen, Verträge, Behördenpost, wichtige Geschäftsdokumente
-- 7-9: Projektbezogen, mit wichtigen Anhängen
-- 4-6: Normale Geschäftskorrespondenz
-- 0-3: Newsletter, Marketing, Notifications
+**Von:** ${from}
+**Betreff:** ${subject}
+**Inhalt (Auszug):** ${body.substring(0, 300)}
+**Anhänge:** ${JSON.stringify(attachmentInfo)}
 
-Antworte NUR mit einer Zahl 0-10.
+BEWERTUNGSKRITERIEN:
+- Score 8-10: Wichtige Dokumente (Rechnungen, Verträge, offizielle Dokumente, Baupläne)
+- Score 5-7: Möglicherweise wichtig (geschäftliche Korrespondenz mit relevanten Anhängen)
+- Score 0-4: Unwichtig (Newsletter, Werbung, Benachrichtigungen)
+
+Antworte NUR mit JSON:
+{
+  "score": <0-10>,
+  "reasoning": "<kurze Begründung in 1-2 Sätzen>"
+}
 `;
 
-    const response = UrlFetchApp.fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'post',
-        contentType: 'application/json',
-        payload: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      }
-    );
+  try {
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const payload = {
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }]
+    };
+    
+    const response = UrlFetchApp.fetch(apiUrl, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
     
     const result = JSON.parse(response.getContentText());
-    const scoreText = result.candidates[0].content.parts[0].text.trim();
-    const score = parseFloat(scoreText);
     
-    return isNaN(score) ? 5 : Math.min(10, Math.max(0, score));
+    if (result.candidates && result.candidates[0]) {
+      const text = result.candidates[0].content.parts[0].text;
+      // Extrahiere JSON aus der Antwort (manchmal mit ```json wrapper)
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    }
     
+    return null;
   } catch (error) {
-    console.error(`❌ KI-Bewertung fehlgeschlagen: ${error.message}`);
-    return 5; // Neutral bei Fehler
+    console.error(`KI-Bewertung Fehler: ${error.message}`);
+    return null;
   }
 }
 
@@ -681,45 +705,7 @@ function loadFilterLists() {
 /**
  * Loggt Filter-Entscheidung zu Supabase
  */
-function logFilterDecision(message, decision, startTime) {
-  try {
-    const processingTime = new Date().getTime() - startTime;
-    const attachments = message.getAttachments();
-    
-    const logData = {
-      email_from: message.getFrom(),
-      email_to: message.getTo(),
-      email_subject: message.getSubject(),
-      has_attachments: attachments.length > 0,
-      attachment_count: attachments.length,
-      attachment_types: attachments.map(a => a.getContentType()),
-      decision: decision.shouldExport ? 'export' : 'skip',
-      reason: decision.reason,
-      matched_rules: decision.matchedRules,
-      ai_score: decision.score,
-      processing_time_ms: processingTime,
-      google_account: Session.getActiveUser().getEmail()
-    };
-    
-    UrlFetchApp.fetch(
-      `${SUPABASE_URL}/rest/v1/email_filter_decisions`,
-      {
-        method: 'post',
-        contentType: 'application/json',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=minimal'
-        },
-        payload: JSON.stringify(logData)
-      }
-    );
-    
-  } catch (error) {
-    // Logging-Fehler sind nicht kritisch
-    console.warn(`⚠️ Logging fehlgeschlagen: ${error.message}`);
-  }
-}
+// Logging-Funktion entfernt - nicht mehr verwendet
 
 // ============================================
 // HELPER-FUNKTIONEN - RFC Message-ID & SHA-256 (NEU in v4.1)
@@ -998,105 +984,260 @@ function cleanString(str) {
 }
 
 // ============================================
-// SETUP & TEST FUNKTIONEN
+// CLEANUP & UTILITY FUNKTIONEN
 // ============================================
 
-function setupPaperlessExport() {
-  console.log('🔧 Setup Paperless Export v4.2 Master...');
-  
-  getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
-  getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
-  
-  const label = GmailApp.getUserLabelByName(PAPERLESS_LABEL);
-  if (!label) {
-    GmailApp.createLabel(PAPERLESS_LABEL);
-    console.log(`✅ Label "${PAPERLESS_LABEL}" erstellt`);
-  }
-  
-  // Test Supabase Connection
-  const filterLists = loadFilterLists();
-  console.log(`✅ Supabase verbunden: ${filterLists.blacklist.length} Blacklist, ${filterLists.whitelist.length} Whitelist`);
-  
-  console.log('✅ Setup v4.2 Master abgeschlossen (.eml Export aktiviert)');
-}
-
-function testExport() {
-  console.log('🧪 Test-Modus aktiviert (v4.2 Master - .eml Export)');
-  exportToPaperless();
-}
-
 /**
- * Debug: Test .eml Export einzeln
+ * 🗑️ TABULA RASA - Google Drive Cleanup
+ * Löscht alle Ordner in Paperless-Emails und Paperless-Attachments
+ * 
+ * WARNUNG: Löscht ALLE exportierten E-Mails und Anhänge!
  */
-function debugEMLExport() {
-  console.log('🔍 Debug: Teste .eml Export...');
+function clearAllPaperlessFolders() {
+  console.log('🗑️ TABULA RASA - Google Drive Cleanup gestartet...');
+  console.log('⚠️  WARNUNG: Alle exportierten E-Mails und Anhänge werden gelöscht!');
   
-  // Erste E-Mail aus Inbox holen
-  const threads = GmailApp.getInboxThreads(0, 1);
-  if (threads.length === 0) {
-    console.log('❌ Keine E-Mails im Posteingang');
-    return;
-  }
-  
-  const message = threads[0].getMessages()[0];
-  console.log('📧 E-Mail gefunden:', message.getSubject());
+  let deletedEmails = 0;
+  let deletedAttachments = 0;
   
   try {
-    // .eml erstellen
-    const emlData = saveEmailAsEML(message);
-    console.log('✅ EML erstellt:', emlData.filename);
+    // Paperless-Emails Ordner leeren
+    const emailsFolder = getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
+    const emailFoldersIterator = emailsFolder.getFolders();
+
+    // Iterator zu Array konvertieren
+    const emailFolders = [];
+    while (emailFoldersIterator.hasNext()) {
+      emailFolders.push(emailFoldersIterator.next());
+    }
+
+    console.log(`📧 Gefunden: ${emailFolders.length} E-Mail Ordner`);
+
+    emailFolders.forEach(folder => {
+      try {
+        folder.setTrashed(true);
+        deletedEmails++;
+        console.log(`🗑️ Gelöscht: ${folder.getName()}`);
+      } catch (e) {
+        console.warn(`⚠️ Fehler beim Löschen: ${folder.getName()} - ${e.message}`);
+      }
+    });
+
+    // Paperless-Attachments Ordner leeren
+    const attachmentsFolder = getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
+    const attachmentFoldersIterator = attachmentsFolder.getFolders();
+
+    // Iterator zu Array konvertieren
+    const attachmentFolders = [];
+    while (attachmentFoldersIterator.hasNext()) {
+      attachmentFolders.push(attachmentFoldersIterator.next());
+    }
+
+    console.log(`📎 Gefunden: ${attachmentFolders.length} Attachment Ordner`);
+
+    attachmentFolders.forEach(folder => {
+      try {
+        folder.setTrashed(true);
+        deletedAttachments++;
+        console.log(`🗑️ Gelöscht: ${folder.getName()}`);
+      } catch (e) {
+        console.warn(`⚠️ Fehler beim Löschen: ${folder.getName()} - ${e.message}`);
+      }
+    });
     
-    // Google Drive Ordner
-    const folder = getOrCreateFolder('Paperless-Emails');
-    console.log('📁 Ordner gefunden:', folder.getName());
+    console.log('✅ TABULA RASA Cleanup abgeschlossen!');
+    console.log(`📊 Gelöscht: ${deletedEmails} E-Mail Ordner, ${deletedAttachments} Attachment Ordner`);
     
-    // Datei speichern
-    const file = folder.createFile(emlData.blob);
-    console.log('✅ Datei gespeichert:', file.getName(), file.getUrl());
+    return {
+      success: true,
+      deletedEmails: deletedEmails,
+      deletedAttachments: deletedAttachments,
+      total: deletedEmails + deletedAttachments
+    };
     
   } catch (error) {
-    console.error('❌ Fehler:', error.message);
-    console.error('Stack:', error.stack);
+    console.error('❌ Fehler beim TABULA RASA Cleanup:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
-function debugEmailsWithAttachments() {
-  console.log('🔍 Debug: E-Mails mit Anhängen...');
+/**
+ * 🔍 Status Check - Zeigt aktuelle Ordner-Statistiken
+ */
+function checkPaperlessFoldersStatus() {
+  console.log('🔍 PAPERLESS ORDNER STATUS');
+  console.log('='.repeat(50));
   
-  const query = 'newer_than:30d has:attachment';
-  const threads = GmailApp.search(query, 0, 20);
-  
-  threads.forEach(thread => {
-    const messages = thread.getMessages();
-    messages.forEach(message => {
-      const attachments = message.getAttachments();
-      if (attachments.length > 0) {
-        console.log(`📧 ${message.getFrom()} - "${message.getSubject()}" (${attachments.length} Anhänge)`);
-        attachments.forEach(att => {
-          console.log(`  📎 ${att.getName()} (${att.getContentType()})`);
-        });
-      }
-    });
-  });
+  try {
+    // Paperless-Emails Status
+    const emailsFolder = getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
+    const emailFoldersIterator = emailsFolder.getFolders();
+    
+    // Iterator zu Array konvertieren
+    const emailFolders = [];
+    while (emailFoldersIterator.hasNext()) {
+      emailFolders.push(emailFoldersIterator.next());
+    }
+    
+    console.log(`📧 Paperless-Emails: ${emailFolders.length} Ordner`);
+
+    if (emailFolders.length > 0) {
+      console.log('   Erste 5 Ordner:');
+      emailFolders.slice(0, 5).forEach(folder => {
+        console.log(`   - ${folder.getName()}`);
+      });
+    }
+
+    // Paperless-Attachments Status
+    const attachmentsFolder = getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
+    const attachmentFoldersIterator = attachmentsFolder.getFolders();
+    
+    // Iterator zu Array konvertieren
+    const attachmentFolders = [];
+    while (attachmentFoldersIterator.hasNext()) {
+      attachmentFolders.push(attachmentFoldersIterator.next());
+    }
+    
+    console.log(`📎 Paperless-Attachments: ${attachmentFolders.length} Ordner`);
+
+    if (attachmentFolders.length > 0) {
+      console.log('   Erste 5 Ordner:');
+      attachmentFolders.slice(0, 5).forEach(folder => {
+        console.log(`   - ${folder.getName()}`);
+      });
+    }
+
+    const total = emailFolders.length + attachmentFolders.length;
+    console.log(`📊 GESAMT: ${total} Ordner`);
+    
+    return {
+      emails: emailFolders.length,
+      attachments: attachmentFolders.length,
+      total: total
+    };
+    
+  } catch (error) {
+    console.error('❌ Fehler beim Status Check:', error.message);
+    return { error: error.message };
+  }
 }
 
 /**
- * Test Filter-System
+ * 🔄 KOMPLETTE TABULA RASA - Alles auf Null setzen
+ * 
+ * Diese Funktion führt einen kompletten Reset durch:
+ * 1. Google Drive Ordner leeren
+ * 2. Supabase Index leeren
+ * 3. Status anzeigen
+ * 
+ * WARNUNG: Löscht ALLE Daten!
  */
-function testFilter() {
-  console.log('🧪 Test: Intelligenter Filter...');
+function completeTabulaRasa() {
+  console.log('🔄 KOMPLETTE TABULA RASA GESTARTET');
+  console.log('='.repeat(60));
+  console.log('⚠️  WARNUNG: Alle exportierten Daten werden gelöscht!');
+  console.log('='.repeat(60));
   
-  const filterLists = loadFilterLists();
-  const query = 'newer_than:3d';
-  const threads = GmailApp.search(query, 0, 10);
+  const startTime = new Date();
   
-  threads.forEach(thread => {
-    const messages = thread.getMessages();
-    messages.forEach(message => {
-      const decision = shouldExportEmail(message, filterLists);
-      const emoji = decision.shouldExport ? '✅' : '🚫';
-      console.log(`${emoji} ${message.getSubject().substring(0, 50)}`);
-      console.log(`   Grund: ${decision.reason} (Score: ${decision.score})`);
-    });
-  });
+  try {
+    // 1. Status vor Cleanup
+    console.log('\n📊 STATUS VOR CLEANUP:');
+    const statusBefore = checkPaperlessFoldersStatus();
+    
+    // 2. Google Drive Cleanup
+    console.log('\n🗑️ GOOGLE DRIVE CLEANUP:');
+    const cleanupResult = clearAllPaperlessFolders();
+    
+    if (!cleanupResult.success) {
+      throw new Error(`Cleanup fehlgeschlagen: ${cleanupResult.error}`);
+    }
+    
+    // 3. Supabase Index leeren
+    console.log('\n🗄️ SUPABASE INDEX LEEREN:');
+    try {
+      // Prüfe ob Einträge existieren
+      const url = `${SUPABASE_URL}/rest/v1/paperless_documents_index?select=count`;
+      const response = UrlFetchApp.fetch(url, {
+        method: 'get',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.getResponseCode() === 200) {
+        const data = JSON.parse(response.getContentText());
+        console.log(`📊 Supabase Index: ${data.length} Einträge gefunden`);
+        
+        if (data.length > 0) {
+          // Lösche alle Einträge
+          const deleteUrl = `${SUPABASE_URL}/rest/v1/paperless_documents_index`;
+          const deleteResponse = UrlFetchApp.fetch(deleteUrl, {
+            method: 'delete',
+            headers: {
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (deleteResponse.getResponseCode() === 204) {
+            console.log('✅ Supabase Index geleert');
+          } else {
+            console.warn('⚠️ Supabase Index konnte nicht geleert werden');
+          }
+        } else {
+          console.log('✅ Supabase Index bereits leer');
+        }
+      }
+    } catch (e) {
+      console.warn(`⚠️ Supabase Cleanup Fehler: ${e.message}`);
+    }
+    
+    // 4. Status nach Cleanup
+    console.log('\n📊 STATUS NACH CLEANUP:');
+    const statusAfter = checkPaperlessFoldersStatus();
+    
+    // 5. Zusammenfassung
+    const endTime = new Date();
+    const duration = Math.round((endTime - startTime) / 1000);
+    
+    console.log('\n🎉 TABULA RASA ABGESCHLOSSEN!');
+    console.log('='.repeat(60));
+    console.log(`⏱️  Dauer: ${duration} Sekunden`);
+    console.log(`📊 Gelöscht: ${cleanupResult.total} Ordner`);
+    console.log(`   - E-Mails: ${cleanupResult.deletedEmails}`);
+    console.log(`   - Attachments: ${cleanupResult.deletedAttachments}`);
+    console.log(`📊 Verbleibend: ${statusAfter.total} Ordner`);
+    console.log('='.repeat(60));
+    
+    console.log('\n🚀 NÄCHSTE SCHRITTE:');
+    console.log('   1. Führe "exportToPaperless" aus');
+    console.log('   2. Warte auf rclone Sync (ca. 5 Min)');
+    console.log('   3. Warte auf eml2pdf Konvertierung');
+    console.log('   4. Überprüfe Paperless-NGX');
+    
+    return {
+      success: true,
+      duration: duration,
+      deleted: cleanupResult.total,
+      remaining: statusAfter.total,
+      before: statusBefore,
+      after: statusAfter
+    };
+    
+  } catch (error) {
+    console.error('❌ TABULA RASA FEHLGESCHLAGEN:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 }
+
+// Debug-Funktionen entfernt - nicht mehr benötigt

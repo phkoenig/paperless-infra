@@ -32,25 +32,6 @@ services:
     image: gotenberg/gotenberg:8
     restart: unless-stopped
 
-  rclone-ingest:
-    image: rclone/rclone:latest
-    restart: unless-stopped
-    volumes:
-      - ./rclone:/config/rclone
-      - /opt/paperless/consume/nextcloud:/data
-    command: ["rclone", "sync", "nextcloud-ingest:INBOX", "/data", "--config", "/config/rclone/rclone.conf", "--no-update-modtime", "--checksum", "--create-empty-src-dirs", "--log-level", "INFO", "--progress"]
-
-  rclone-backup:
-    image: rclone/rclone:latest
-    restart: unless-stopped
-    env_file:
-      - .env
-    volumes:
-      - ./rclone:/config/rclone
-      - /opt/paperless/media:/media:ro
-      - /opt/paperless/backups:/backups
-    command: ["sh", "-c", "while true; do rclone sync /media/documents/originals nextcloud-backup:Paperless/originals --config /config/rclone/rclone.conf --log-level INFO && sleep 3600; done"]
-
   gdrive-sync-philip:
     image: alpine:latest
     restart: unless-stopped

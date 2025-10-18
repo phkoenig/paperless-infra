@@ -72,6 +72,10 @@ ENV/
 *.sublime-*
 .DS_Store
 
+# Cursor AI
+.cursor/plans/
+.cursor/commands/
+
 # ===================================
 # OS-spezifisch
 # ===================================
