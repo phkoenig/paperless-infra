@@ -137,8 +137,18 @@ except UnicodeDecodeError:
 
 ### Station 2: Google Drive (Zwischenlager)
 
-**Ordner:** `Paperless-Emails/`  
-**Struktur:** Pro E-Mail ein Unterordner
+**📁 Ordner-Struktur (v4.2+):**
+```
+Paperless-Emails/
+└── [timestamp]_[sender]_[subject]/
+    ├── email.eml              ← RAW E-Mail (RFC 2822)
+    ├── email-metadata.json    ← Filter-Entscheidung, Links, Hashes
+    └── attachment-*.xyz       ← Anhänge (falls vorhanden)
+```
+
+**⚠️ WICHTIG:** Es gibt **NUR EINEN Ordner** (`Paperless-Emails`). Alle Anhänge sind **IM E-Mail-Ordner** gespeichert!
+
+**🗑️ Legacy:** Der alte `Paperless-Attachments` Ordner (v3.x) wird **nicht mehr verwendet** und kann gelöscht werden.
 
 **Warum Zwischenlager?**
 - ✅ **Backup!** Falls Server down ist

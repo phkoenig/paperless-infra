@@ -35,11 +35,11 @@
 // ============================================
 
 // VERSION
-const SCRIPT_VERSION = 'v4.2.7-TEST';
+const SCRIPT_VERSION = 'v4.2.8-CLEAN';
 const SCRIPT_NAME = 'Paperless-Email-Export-Script-Master';
 const FULL_VERSION = `${SCRIPT_NAME}-${SCRIPT_VERSION}`;
 
-const PAPERLESS_ATTACHMENTS_FOLDER = 'Paperless-Attachments';
+// NUR noch Paperless-Emails Ordner (Attachments sind IM E-Mail-Ordner!)
 const PAPERLESS_EMAILS_FOLDER = 'Paperless-Emails';
 const PAPERLESS_LABEL = 'Paperless';
 
@@ -122,173 +122,7 @@ function exportToPaperless() {
 }
 
 /**
- * Stufe 1: ALLE E-Mail-Anhänge exportieren (mit intelligentem Filter!)
- */
-function exportAllAttachments(filterLists) {
-  console.log('📎 Exportiere E-Mail-Anhänge (mit intelligentem Filter)...');
-  
-  const attachmentsRootFolder = getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
-  
-  // 🧪 TEST-MODUS: Nur E-Mails von heute + max 20 E-Mails
-  const query = 'newer_than:1d';  // Nur heute (1 Tag)
-  const threads = GmailApp.search(query, 0, 20);  // Max 20 E-Mails für Tests
-  
-  console.log(`🧪 TEST-MODUS: Beschränkt auf E-Mails der letzten 24h, max 20 E-Mails`);
-  
-  let attachmentCount = 0;
-  let skippedCount = 0;
-  let filteredCount = 0;
-  let processedEmails = 0;
-  
-  threads.forEach(thread => {
-    const messages = thread.getMessages();
-    
-    messages.forEach(message => {
-      const startTime = new Date().getTime();
-      
-      // ======== INTELLIGENTER FILTER ========
-      const filterDecision = shouldExportEmail(message, filterLists);
-      
-      if (!filterDecision.shouldExport) {
-        filteredCount++;
-        console.log(`🚫 Gefiltert: ${message.getSubject()} (${filterDecision.reason})`);
-        return; // ← E-Mail wird NICHT exportiert
-      }
-      
-      console.log(`✅ Export: ${message.getSubject()} (${filterDecision.reason})`);
-      // ======================================
-      
-      const attachments = message.getAttachments();
-      
-      // Relevante Anhänge filtern
-      const relevantAttachments = [];
-      attachments.forEach(attachment => {
-        const contentType = attachment.getContentType();
-        const fileName = attachment.getName();
-        const fileExtension = fileName.split('.').pop().toLowerCase();
-        
-        if (isRelevantAttachment(contentType, fileExtension, fileName)) {
-          relevantAttachments.push(attachment);
-        } else {
-          skippedCount++;
-        }
-      });
-      
-      // Nur wenn relevante Anhänge vorhanden sind
-      if (relevantAttachments.length > 0) {
-        try {
-          // E-Mail-Metadaten extrahieren
-          const rfcMessageId = extractRFCMessageID(message);  // ← NEU: RFC-Standard
-          const gmailMessageId = message.getId();              // Gmail-intern (Backup)
-          const threadId = thread.getId();
-          const from = message.getFrom();
-          const to = message.getTo();
-          const cc = message.getCc();
-          const bcc = message.getBcc();
-          const subject = message.getSubject();
-          const date = message.getDate();
-          const body = message.getPlainBody();
-          
-          // ======== DUPLIKAT-CHECK (NEU v4.2) ========
-          const duplicateCheck = isDuplicateInPaperless(message);
-          
-          if (duplicateCheck.isDuplicate) {
-            console.log(`🔁 DUPLIKAT übersprungen: ${subject.substring(0, 50)} (bereits in Paperless)`);
-            return; // ← Verhindert Upload von bekannten Duplikaten
-          }
-          // ==========================================
-          
-          // Eindeutige E-Mail-Ordner-ID
-          const timestamp = Utilities.formatDate(date, 'GMT+1', 'yyyy-MM-dd_HH-mm-ss');
-          const fromShort = cleanString(from.split('<')[0].trim()).substring(0, 20);
-          const subjectShort = cleanString(subject).substring(0, 30);
-          const emailFolderId = `${timestamp}_${fromShort}_${subjectShort}`;
-          
-          // Prüfen ob Ordner bereits existiert (verhindert lokale Duplikate)
-          if (folderExists(attachmentsRootFolder, emailFolderId)) {
-            console.log(`⏭️ Ordner bereits vorhanden: ${emailFolderId}`);
-            return;
-          }
-          
-          // E-Mail-Unterordner erstellen
-          const emailFolder = getOrCreateSubFolder(attachmentsRootFolder, emailFolderId);
-          
-          // Alle relevanten Anhänge in den E-Mail-Ordner speichern
-          relevantAttachments.forEach(attachment => {
-            emailFolder.createFile(attachment.copyBlob().setName(attachment.getName()));
-            console.log(`📎 Exportiert: ${emailFolderId}/${attachment.getName()}`);
-            attachmentCount++;
-          });
-          
-          // E-Mail-Metadaten als JSON erstellen (v4.1 mit RFC Message-ID + SHA-256)
-          const metadata = {
-            // RFC-Standard IDs (weltweit eindeutig)
-            messageId: rfcMessageId,                    // ← NEU: RFC Message-ID
-            messageIdType: 'rfc2822',
-            
-            // Gmail-spezifische IDs (als Backup)
-            gmailMessageId: gmailMessageId,
-            gmailThreadId: threadId,
-            
-            // E-Mail-Daten
-            from: from,
-            to: to,
-            cc: cc,
-            bcc: bcc,
-            subject: subject,
-            date: date.toISOString(),
-            bodyPreview: body.substring(0, 500),
-            
-            // Anhänge mit SHA-256 Hashes
-            attachments: relevantAttachments.map(att => createAttachmentMetadata(att)),  // ← NEU: Mit SHA-256
-            attachmentCount: relevantAttachments.length,
-            
-            // Links & Referenzen
-            gmailDeepLink: `https://mail.google.com/mail/u/0/#inbox/${threadId}`,
-            gmailDirectLink: `https://mail.google.com/mail/u/0/#search/rfc822msgid%3A${rfcMessageId}`,
-            
-            // Export-Info
-            exportTimestamp: new Date().toISOString(),
-            exportedBy: FULL_VERSION,
-            exportedFrom: Session.getActiveUser().getEmail(),
-            
-            // Filter-Entscheidung
-            filterDecision: filterDecision,
-            
-            // Version & Schema
-            metadataVersion: '4.1',
-            schemaType: 'paperless-email-export'
-          };
-          
-          // JSON speichern
-          const metadataBlob = Utilities.newBlob(
-            JSON.stringify(metadata, null, 2), 
-            'application/json', 
-            'email-metadata.json'
-          );
-          emailFolder.createFile(metadataBlob);
-          
-          console.log(`✅ E-Mail exportiert: ${emailFolderId}/ (${relevantAttachments.length} Anhänge)`);
-          processedEmails++;
-          
-          // ======== INDEX-REGISTRIERUNG (NEU v4.2) ========
-          // Registriere in Supabase paperless_documents_index
-          const attachmentMetadata = relevantAttachments.map(att => createAttachmentMetadata(att));
-          registerInPaperlessIndex(message, attachmentMetadata, emailFolder.getId());
-          // ================================================
-          
-        } catch (error) {
-          console.error(`❌ Fehler beim Export: ${error.message}`);
-        }
-      }
-    });
-  });
-  
-  console.log(`✅ ${processedEmails} E-Mails exportiert, ${filteredCount} gefiltert, ${attachmentCount} Anhänge, ${skippedCount} übersprungen`);
-}
-
-/**
- * Stufe 2: Alle E-Mails exportieren (mit intelligentem Filter)
+ * Alle E-Mails exportieren (mit intelligentem Filter)
  * Speichert als .eml + metadata.json (+ Anhänge falls vorhanden)
  */
 function exportFilteredEmails(filterLists) {
@@ -989,19 +823,18 @@ function cleanString(str) {
 
 /**
  * 🗑️ TABULA RASA - Google Drive Cleanup
- * Löscht alle Ordner in Paperless-Emails und Paperless-Attachments
+ * Löscht alle Ordner in Paperless-Emails (Anhänge sind dort mit drin!)
  * 
- * WARNUNG: Löscht ALLE exportierten E-Mails und Anhänge!
+ * WARNUNG: Löscht ALLE exportierten E-Mails!
  */
 function clearAllPaperlessFolders() {
   console.log('🗑️ TABULA RASA - Google Drive Cleanup gestartet...');
-  console.log('⚠️  WARNUNG: Alle exportierten E-Mails und Anhänge werden gelöscht!');
+  console.log('⚠️  WARNUNG: Alle exportierten E-Mails werden gelöscht!');
   
   let deletedEmails = 0;
-  let deletedAttachments = 0;
   
   try {
-    // Paperless-Emails Ordner leeren
+    // Paperless-Emails Ordner leeren (enthält E-Mails + Anhänge)
     const emailsFolder = getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
     const emailFoldersIterator = emailsFolder.getFolders();
 
@@ -1011,7 +844,7 @@ function clearAllPaperlessFolders() {
       emailFolders.push(emailFoldersIterator.next());
     }
 
-    console.log(`📧 Gefunden: ${emailFolders.length} E-Mail Ordner`);
+    console.log(`📧 Gefunden: ${emailFolders.length} E-Mail Ordner (inkl. Anhänge)`);
 
     emailFolders.forEach(folder => {
       try {
@@ -1022,37 +855,14 @@ function clearAllPaperlessFolders() {
         console.warn(`⚠️ Fehler beim Löschen: ${folder.getName()} - ${e.message}`);
       }
     });
-
-    // Paperless-Attachments Ordner leeren
-    const attachmentsFolder = getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
-    const attachmentFoldersIterator = attachmentsFolder.getFolders();
-
-    // Iterator zu Array konvertieren
-    const attachmentFolders = [];
-    while (attachmentFoldersIterator.hasNext()) {
-      attachmentFolders.push(attachmentFoldersIterator.next());
-    }
-
-    console.log(`📎 Gefunden: ${attachmentFolders.length} Attachment Ordner`);
-
-    attachmentFolders.forEach(folder => {
-      try {
-        folder.setTrashed(true);
-        deletedAttachments++;
-        console.log(`🗑️ Gelöscht: ${folder.getName()}`);
-      } catch (e) {
-        console.warn(`⚠️ Fehler beim Löschen: ${folder.getName()} - ${e.message}`);
-      }
-    });
     
     console.log('✅ TABULA RASA Cleanup abgeschlossen!');
-    console.log(`📊 Gelöscht: ${deletedEmails} E-Mail Ordner, ${deletedAttachments} Attachment Ordner`);
+    console.log(`📊 Gelöscht: ${deletedEmails} E-Mail Ordner (inkl. aller Anhänge)`);
     
     return {
       success: true,
       deletedEmails: deletedEmails,
-      deletedAttachments: deletedAttachments,
-      total: deletedEmails + deletedAttachments
+      total: deletedEmails
     };
     
   } catch (error) {
@@ -1072,7 +882,7 @@ function checkPaperlessFoldersStatus() {
   console.log('='.repeat(50));
   
   try {
-    // Paperless-Emails Status
+    // Paperless-Emails Status (enthält E-Mails + Anhänge)
     const emailsFolder = getOrCreateFolder(PAPERLESS_EMAILS_FOLDER);
     const emailFoldersIterator = emailsFolder.getFolders();
     
@@ -1082,7 +892,7 @@ function checkPaperlessFoldersStatus() {
       emailFolders.push(emailFoldersIterator.next());
     }
     
-    console.log(`📧 Paperless-Emails: ${emailFolders.length} Ordner`);
+    console.log(`📧 Paperless-Emails: ${emailFolders.length} Ordner (inkl. Anhänge)`);
 
     if (emailFolders.length > 0) {
       console.log('   Erste 5 Ordner:');
@@ -1091,32 +901,11 @@ function checkPaperlessFoldersStatus() {
       });
     }
 
-    // Paperless-Attachments Status
-    const attachmentsFolder = getOrCreateFolder(PAPERLESS_ATTACHMENTS_FOLDER);
-    const attachmentFoldersIterator = attachmentsFolder.getFolders();
-    
-    // Iterator zu Array konvertieren
-    const attachmentFolders = [];
-    while (attachmentFoldersIterator.hasNext()) {
-      attachmentFolders.push(attachmentFoldersIterator.next());
-    }
-    
-    console.log(`📎 Paperless-Attachments: ${attachmentFolders.length} Ordner`);
-
-    if (attachmentFolders.length > 0) {
-      console.log('   Erste 5 Ordner:');
-      attachmentFolders.slice(0, 5).forEach(folder => {
-        console.log(`   - ${folder.getName()}`);
-      });
-    }
-
-    const total = emailFolders.length + attachmentFolders.length;
-    console.log(`📊 GESAMT: ${total} Ordner`);
+    console.log(`📊 GESAMT: ${emailFolders.length} E-Mail Ordner`);
     
     return {
       emails: emailFolders.length,
-      attachments: attachmentFolders.length,
-      total: total
+      total: emailFolders.length
     };
     
   } catch (error) {
